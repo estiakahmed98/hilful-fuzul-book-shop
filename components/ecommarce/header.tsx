@@ -106,7 +106,7 @@ export default function Header() {
   return (
     <header className={`sticky top-0 z-50 transition-all duration-300 ${
       isScrolled 
-        ? 'bg-[#819A91] shadow-lg backdrop-blur-sm bg-opacity-95' 
+        ? 'bg-[#819A91] shadow-lg backdrop-blur-sm bg-opacity-35' 
         : 'bg-gradient-to-r from-[#819A91] to-[#A7C1A8]'
     }`}>
       {/* Top Bar */}
