@@ -64,7 +64,7 @@ export default function AllBooksPage() {
   });
 
   return (
-    <div className="min-h-screen mt-20 bg-gradient-to-b from-[#EEEFE0]/30 to-white">
+    <div className="min-h-screen bg-gradient-to-b from-[#EEEFE0]/30 to-white">
       {/* Added top margin here */}
       <div className="pt-8 md:pt-12 lg:pt-16 pb-8">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
