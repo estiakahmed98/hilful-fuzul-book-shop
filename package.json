@@ -50,6 +50,7 @@
     "d3": "^7.9.0",
     "date-fns": "^4.1.0",
     "formik": "^2.4.6",
+    "framer-motion": "^12.23.24",
     "googleapis": "^144.0.0",
     "html2canvas": "^1.4.1",
     "html2pdf.js": "^0.10.2",
