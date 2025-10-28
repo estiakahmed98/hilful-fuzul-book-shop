@@ -114,7 +114,7 @@ export default function BookDetail() {
     .slice(0, 4);
 
   return (
-    <div className="min-h-screen mt-24 bg-gradient-to-b from-[#EEEFE0]/30 to-white py-8 md:py-12 lg:py-16">
+    <div className="min-h-screen  bg-gradient-to-b from-[#EEEFE0]/30 to-white py-8 md:py-12 lg:py-16">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         {/* Breadcrumb Navigation */}
         <div className="flex items-center gap-4 mb-6">

@@ -102,7 +102,7 @@ export default function Hero({ interval = 6000 }) {
 
   return (
     <section
-      className={`relative w-full mt-36 h-[70vh] md:h-[80vh] overflow-hidden rounded-3xl md:rounded-4xl shadow-2xl transition-all duration-1000 ${
+      className={`relative w-full h-[70vh] md:h-[80vh] overflow-hidden rounded-3xl md:rounded-4xl shadow-2xl transition-all duration-1000 ${
         isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
       }`}
       aria-roledescription="carousel"

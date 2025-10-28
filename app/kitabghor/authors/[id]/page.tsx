@@ -60,7 +60,7 @@ export default function AuthorBooksPage() {
   }
 
   return (
-    <div className="min-h-screen mt-24 bg-gradient-to-b from-[#EEEFE0]/30 to-white py-8 md:py-12 lg:py-16">
+    <div className="min-h-screen  bg-gradient-to-b from-[#EEEFE0]/30 to-white py-8 md:py-12 lg:py-16">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         {/* Enhanced Header */}
         <div className="mb-8 md:mb-12">

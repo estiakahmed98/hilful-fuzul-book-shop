@@ -8,6 +8,8 @@ import TreeProvider from "@/providers/treeProvider";
 import { CartProvider } from "@/components/ecommarce/CartContext";
 import { WishlistProvider } from "@/components/ecommarce/WishlistContext";
 import { AuthProvider } from "@/components/auth/AuthContext";
+import Header from "@/components/ecommarce/header";
+import Footer from "@/components/ecommarce/footer";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -30,7 +32,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning={true}>
+    <html lang="bn" suppressHydrationWarning={true}>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
@@ -42,11 +44,20 @@ export default function RootLayout({
           <AuthProvider>
             <TreeProvider>
               <CartProvider>
-                <WishlistProvider>{children}</WishlistProvider>
+                <WishlistProvider>
+                  {/* Conditional Header - You can make this more dynamic based on routes */}
+                  <Header />
+                  
+                  {/* Main Content */}
+                  <main className="min-h-screen">
+                    {children}
+                  </main>
+                </WishlistProvider>
               </CartProvider>
             </TreeProvider>
           </AuthProvider>
           <Toaster />
+           <Footer />
         </ThemeProvider>
       </body>
     </html>
