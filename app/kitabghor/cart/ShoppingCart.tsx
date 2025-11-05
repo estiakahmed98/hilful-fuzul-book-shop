@@ -9,11 +9,17 @@ import Image from "next/image";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/components/auth/AuthContext";
+
+// ✅ NextAuth client hooks/helpers
+import { useSession, signIn } from "@/lib/auth-client";
 
 export default function CartPage() {
   const { cartItems, removeFromCart, updateQuantity, clearCart } = useCart();
-  const { isAuthenticated } = useAuth();
+
+  // ✅ NextAuth session
+  const { status } = useSession(); // status: "loading" | "authenticated" | "unauthenticated"
+  const isAuthenticated = status === "authenticated";
+
   const router = useRouter();
 
   const [couponCode, setCouponCode] = useState("");
@@ -26,15 +32,19 @@ export default function CartPage() {
 
   if (!hasMounted) return null;
 
-  const handleCheckout = () => {
+  const handleCheckout = async () => {
     if (!isAuthenticated) {
-      sessionStorage.setItem('pendingCheckout', JSON.stringify(cartItems));
-      sessionStorage.setItem('redirectAfterLogin', '/kitabghor/checkout');
-      router.push(`/signin?returnUrl=${encodeURIComponent('/kitabghor/cart')}`);
+      // preserve cart & target route for after login
+      sessionStorage.setItem("pendingCheckout", JSON.stringify(cartItems));
+      sessionStorage.setItem("redirectAfterLogin", "/kitabghor/checkout");
       toast.info("চেকআউট করতে লগইন করুন");
+
+      // ✅ Use NextAuth's signIn so it respects pages.signIn = "/auth/sign-in"
+      // and returns back to checkout after successful auth
+      await signIn(undefined, { callbackUrl: "/kitabghor/checkout" });
       return;
     }
-    
+
     router.push("/kitabghor/checkout");
   };
 
@@ -66,8 +76,8 @@ export default function CartPage() {
         {/* Enhanced Header */}
         <div className="mb-8 md:mb-12">
           <div className="flex items-center gap-4 mb-6">
-            <Link 
-              href="/" 
+            <Link
+              href="/"
               className="flex items-center gap-2 text-[#819A91] hover:text-[#A7C1A8] transition-colors duration-300 group"
             >
               <ArrowLeft className="h-5 w-5 group-hover:-translate-x-1 transition-transform" />
@@ -217,7 +227,7 @@ export default function CartPage() {
                     <span className="text-gray-600">সাবটোটাল</span>
                     <span className="font-semibold">৳{subtotal.toFixed(2)}</span>
                   </div>
-                  
+
                   {discount > 0 && (
                     <div className="flex justify-between items-center py-2 text-green-600 bg-green-50 rounded-xl px-3">
                       <span className="flex items-center gap-2">
@@ -227,14 +237,14 @@ export default function CartPage() {
                       <span className="font-semibold">-৳{discountAmount.toFixed(2)}</span>
                     </div>
                   )}
-                  
+
                   <div className="flex justify-between items-center py-2">
                     <span className="text-gray-600 flex items-center gap-2">
                       <Truck className="h-4 w-4 text-[#819A91]" />
                       শিপিং
                     </span>
-                    <span className={`font-semibold ${shippingCost === 0 ? 'text-green-600' : ''}`}>
-                      {shippingCost === 0 ? 'ফ্রি' : `৳${shippingCost.toFixed(2)}`}
+                    <span className={`${shippingCost === 0 ? "text-green-600" : ""} font-semibold`}>
+                      {shippingCost === 0 ? "ফ্রি" : `৳${shippingCost.toFixed(2)}`}
                     </span>
                   </div>
 
@@ -261,7 +271,7 @@ export default function CartPage() {
                       onChange={(e) => setCouponCode(e.target.value)}
                       className="rounded-xl border-[#D1D8BE] focus:border-[#819A91]"
                     />
-                    <Button 
+                    <Button
                       onClick={applyCoupon}
                       className="rounded-xl bg-[#D1D8BE] text-gray-700 hover:bg-[#819A91] hover:text-white transition-all duration-300 whitespace-nowrap"
                     >
@@ -274,7 +284,7 @@ export default function CartPage() {
                 </div>
 
                 {/* Checkout Button */}
-                <Button 
+                <Button
                   className="w-full rounded-xl py-6 bg-gradient-to-r from-[#819A91] to-[#A7C1A8] hover:from-[#A7C1A8] hover:to-[#819A91] text-white font-bold text-lg border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 group/checkout"
                   onClick={handleCheckout}
                   disabled={cartItems.length === 0}

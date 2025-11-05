@@ -10,6 +10,7 @@ import { WishlistProvider } from "@/components/ecommarce/WishlistContext";
 import { AuthProvider } from "@/components/auth/AuthContext";
 import Header from "@/components/ecommarce/header";
 import Footer from "@/components/ecommarce/footer";
+import { Providers } from "./providers";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -41,7 +42,7 @@ export default function RootLayout({
           defaultTheme="light"
           disableTransitionOnChange
         >
-          <AuthProvider>
+          <Providers>
             <TreeProvider>
               <CartProvider>
                 <WishlistProvider>
@@ -55,7 +56,7 @@ export default function RootLayout({
                 </WishlistProvider>
               </CartProvider>
             </TreeProvider>
-          </AuthProvider>
+          </Providers>
           <Toaster />
            <Footer />
         </ThemeProvider>

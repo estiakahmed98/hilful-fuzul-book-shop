@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { useSession, authClient } from "@/lib/auth-client";
+import { useSession, signOut } from "@/lib/auth-client";
 import {
   Menu,
   X,
@@ -48,7 +48,7 @@ export default function Header() {
   const handleAuthClick = async () => {
     if (session) {
       try {
-        await authClient.signOut();
+        await signOut();
         router.push('/');
         router.refresh();
       } catch (error) {

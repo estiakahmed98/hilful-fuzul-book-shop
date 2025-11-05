@@ -32,15 +32,15 @@ export default async function authMiddleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  let session = null;
-  
+  let session: any = null;
+
   try {
     const response = await fetch(new URL('/api/auth/session', request.url), {
       headers: {
         cookie: request.headers.get('cookie') || '',
       },
     });
-    
+
     if (response.ok) {
       const contentType = response.headers.get('content-type');
       if (contentType && contentType.includes('application/json')) {
@@ -53,17 +53,17 @@ export default async function authMiddleware(request: NextRequest) {
 
   // Handle protected routes (admin and dashboard)
   const isProtectedRoute = pathname.startsWith('/admin') || pathname.startsWith('/dashboard');
-  
+
   if (isProtectedRoute && !session) {
     const signInUrl = new URL('/signin', request.url);
     signInUrl.searchParams.set('returnUrl', pathname);
     return NextResponse.redirect(signInUrl);
   }
 
-  // Redirect authenticated users away from auth pages
+  // Redirect authenticated users away from auth pages -> to /home
   const isAuthRoute = ['/signin', '/sign-up'].includes(pathname);
   if (session && isAuthRoute) {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+    return NextResponse.redirect(new URL('/', request.url));
   }
 
   return NextResponse.next();
