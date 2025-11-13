@@ -1,5 +1,5 @@
 // components/blog/BlogList.tsx
-'use client';
+"use client";
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
@@ -19,12 +19,14 @@ interface Blog {
 const formatTimeSince = (date: string | Date): string => {
   const now = new Date();
   const past = new Date(date);
-  const diffInMinutes = Math.floor((now.getTime() - past.getTime()) / (1000 * 60));
+  const diffInMinutes = Math.floor(
+    (now.getTime() - past.getTime()) / (1000 * 60)
+  );
 
   if (diffInMinutes < 60) {
     return `${diffInMinutes === 0 ? 1 : diffInMinutes} মিনিট আগে`;
   }
-  
+
   const diffInHours = Math.floor(diffInMinutes / 60);
   if (diffInHours < 24) {
     return `${diffInHours} ঘন্টা আগে`;
@@ -36,10 +38,10 @@ const formatTimeSince = (date: string | Date): string => {
   }
 
   // Fallback to simple date
-  return past.toLocaleDateString('bn-BD', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric'
+  return past.toLocaleDateString("bn-BD", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
   });
 };
 
@@ -56,12 +58,14 @@ export default function AllBlogs() {
       setLoading(true);
       const params = new URLSearchParams({
         page: page.toString(),
-        limit: '10', // Showing 10 blogs per page
+        limit: "10", // Showing 10 blogs per page
       });
 
       // API call to fetch all blogs
       const response = await fetch(`/api/blog?${params}`);
-      const isJson = response.headers.get('content-type')?.includes('application/json');
+      const isJson = response.headers
+        .get("content-type")
+        ?.includes("application/json");
       const data = isJson ? await response.json() : null;
 
       if (response.ok && data?.blogs) {
@@ -69,7 +73,7 @@ export default function AllBlogs() {
         setTotalPages(data.pagination?.pages || 1);
       }
     } catch (error) {
-      console.error('Error fetching blogs:', error);
+      console.error("Error fetching blogs:", error);
       // Optionally show a user-friendly error message
     } finally {
       setLoading(false);
@@ -91,23 +95,30 @@ export default function AllBlogs() {
   if (blogs.length === 0) {
     return (
       <div className="text-center p-12 bg-white rounded-lg shadow-md">
-        <h3 className="text-xl font-medium text-gray-700">কোনো ব্লগ পোস্ট পাওয়া যায়নি।</h3>
+        <h3 className="text-xl font-medium text-gray-700">
+          কোনো ব্লগ পোস্ট পাওয়া যায়নি।
+        </h3>
         <p className="text-gray-500 mt-2">নতুন পোস্টের জন্য অপেক্ষা করুন।</p>
       </div>
     );
   }
 
   return (
-    <div className="p-2">
-      <h1 className="text-3xl font-bold text-gray-900 mb-8 border-b pb-2">সাম্প্রতিক ব্লগ পোস্ট</h1>
+    <div className="p-20 bg-gradient-to-br from-[#f4fff4] to-[#d1d1d1]">
+      <h1 className="text-3xl font-bold text-gray-900 mb-8 border-b pb-2">
+        সাম্প্রতিক ব্লগ পোস্ট
+      </h1>
 
       {/* Blog List Layout - Stacked, responsive, similar to the image */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {blogs.map((blog) => (
           // Blog Card
-          <Link key={blog.id} href={`/kitabghor/blogs/${blog.id}`} className="block">
+          <Link
+            key={blog.id}
+            href={`/kitabghor/blogs/${blog.id}`}
+            className="block"
+          >
             <div className="flex flex-col sm:flex-row bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden border border-gray-100">
-              
               {/* Image Section - Takes 1/3 or full width on small screens */}
               <div className="sm:w-1/3 w-full h-48 sm:h-auto flex-shrink-0">
                 {blog.image ? (
@@ -131,12 +142,12 @@ export default function AllBlogs() {
                 <p className="text-gray-600 line-clamp-3 mb-3">
                   {blog.summary}
                 </p>
-                
+
                 {/* Meta Info: Time Since/Author/Date */}
                 <div className="mt-auto text-sm text-gray-500 pt-2 border-t border-gray-50">
                   <p className="font-medium">
                     {/* Assuming createdAt represents the post time */}
-                    {formatTimeSince(blog.createdAt)} 
+                    {formatTimeSince(blog.createdAt)}
                   </p>
                 </div>
               </div>
@@ -144,7 +155,7 @@ export default function AllBlogs() {
           </Link>
         ))}
       </div>
-      
+
       {/* Simple Pagination */}
       {totalPages > 1 && (
         <div className="flex justify-center mt-10 space-x-2">

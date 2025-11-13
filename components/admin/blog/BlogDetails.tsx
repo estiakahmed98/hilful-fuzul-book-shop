@@ -90,7 +90,7 @@ export default function BlogDetails() {
 
   if (error || !blog) {
     return (
-      <div className="text-center p-12 bg-white rounded-lg shadow-md max-w-2xl mx-auto mt-10">
+      <div className="text-center p-12 bg-gradient-to-br from-[#f4fff4] to-[#E5E5E5] rounded-lg shadow-md max-w-2xl mx-auto mt-10">
         <h3 className="text-2xl font-bold text-red-600 mb-2">Error!</h3>
         <p className="text-gray-700">
           {error || "ব্লগটি খুঁজে পাওয়া যায়নি।"}
@@ -107,7 +107,7 @@ export default function BlogDetails() {
 
   // Main Layout
   return (
-    <div className="w-full mx-auto py-8 px-4 sm:px-6 lg:px-8">
+    <div className="w-full mx-auto py-8 bg-gradient-to-br from-[#f4fff4] to-[#E5E5E5] px-4 sm:px-6 lg:px-8">
       {/* Three-Column Grid for Ad Layout on large screens */}
       <div className="grid grid-cols-1 lg:grid-cols-[200px_1fr_200px] xl:grid-cols-[250px_1fr_250px] gap-6 lg:gap-8">
         {/* 1. Left Ad Column (Hidden on mobile) */}
