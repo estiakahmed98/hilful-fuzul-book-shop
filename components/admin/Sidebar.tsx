@@ -11,7 +11,7 @@ const menuItems = [
   { name: "Products", href: "/admin/products", icon: ShoppingBag },
   { name: "Orders", href: "/admin/orders", icon: FileText },
   { name: "Categories", href: "/admin/categories", icon: FileText },
-  { name: "Blog", href: "/admin/blog", icon: BookOpen },
+  { name: "Blog", href: "/admin/blogs", icon: BookOpen },
   { name: "Settings", href: "/admin/settings", icon: Settings },
 ];
 

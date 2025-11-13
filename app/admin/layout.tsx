@@ -7,32 +7,27 @@ import { redirect } from "next/navigation";
 import Sidebar from "@/components/admin/Sidebar";
 import Header from "@/components/admin/Header";
 
-const AdminLayout = async ({ children }: { children: React.ReactNode }) => {
+export default async function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const session = await getServerSession(authOptions);
 
-  // Not logged in → go signin
-  if (!session?.user) {
-    redirect("/signin");
-  }
-
-  // Logged in but NOT admin → go normal user dashboard
-  if (session.user.role !== "admin") {
-    redirect("/kitabghor/user/");
-  }
+  if (!session?.user) redirect("/signin");
+  if (session.user.role !== "admin") redirect("/kitabghor/user");
 
   return (
     <SidebarProvider>
-      <div className="flex h-screen w-full bg-gray-100">
-        <Sidebar />
-        <div className="flex flex-col flex-1 min-h-screen">
+      <div className="flex min-h-screen bg-gray-50">
+        <div className="hidden lg:block lg:w-64">
+          <Sidebar />
+        </div>
+        <div className="flex-1 flex flex-col overflow-hidden">
           <Header />
-          <main className="flex-1 overflow-y-auto p-4 lg:p-6">
-            {children}
-          </main>
+          <main className="flex-1 p-4 md:p-6 overflow-y-auto">{children}</main>
         </div>
       </div>
     </SidebarProvider>
   );
-};
-
-export default AdminLayout;
+}

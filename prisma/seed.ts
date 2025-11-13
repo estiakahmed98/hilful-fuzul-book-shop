@@ -5,7 +5,7 @@ const db = new PrismaClient();
 
 async function main() {
   const adminEmail = "admin@example.com";
-  const adminPassword = "Admin123!";
+  const adminPassword = "admin123";
 
   const existing = await db.user.findUnique({
     where: { email: adminEmail },

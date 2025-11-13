@@ -1,4 +1,4 @@
-//Estiak
+//components/richTextEditor.tsx
 
 import React, { useState, useRef, useMemo } from "react";
 // import JoditEditor from "jodit-react";
