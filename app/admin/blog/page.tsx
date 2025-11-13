@@ -1,9 +1,9 @@
-const UserPage = async () => {
+"use client";
+
+export default function Blog() {
   return (
     <div className="flex h-screen w-full justify-center text-5xl">
-      User Management
+      Blog Management
     </div>
   );
-};
-
-export default UserPage;
+}

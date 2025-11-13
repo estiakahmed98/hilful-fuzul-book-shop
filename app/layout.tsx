@@ -7,9 +7,6 @@ import { Toaster } from "@/components/ui/sonner";
 import TreeProvider from "@/providers/treeProvider";
 import { CartProvider } from "@/components/ecommarce/CartContext";
 import { WishlistProvider } from "@/components/ecommarce/WishlistContext";
-import { AuthProvider } from "@/components/auth/AuthContext";
-import Header from "@/components/ecommarce/header";
-import Footer from "@/components/ecommarce/footer";
 import { Providers } from "./providers";
 
 const geistSans = Geist({
@@ -23,8 +20,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ইসলামি দাওয়াহ ইনস্টিটিউট বাংলাদেশ",
-  description: "ইসলামি দাওয়াহ ইনস্টিটিউট বাংলাদেশ",
+  title: "হিলফুল-ফুযুল প্রকাশনী",
+  description: "হিলফুল-ফুযুল প্রকাশনী",
 };
 
 export default function RootLayout({
@@ -46,19 +43,12 @@ export default function RootLayout({
             <TreeProvider>
               <CartProvider>
                 <WishlistProvider>
-                  {/* Conditional Header - You can make this more dynamic based on routes */}
-                  <Header />
-                  
-                  {/* Main Content */}
-                  <main className="min-h-screen">
-                    {children}
-                  </main>
+                  <main className="min-h-screen">{children}</main>
                 </WishlistProvider>
               </CartProvider>
             </TreeProvider>
           </Providers>
           <Toaster />
-           <Footer />
         </ThemeProvider>
       </body>
     </html>

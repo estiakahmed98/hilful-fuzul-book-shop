@@ -1,10 +1,9 @@
-import EcommarceAdminDashboard from "@/components/ecommarce/SalesDashboard";
 import React from "react";
 
 const Page = () => {
   return (
-    <div>
-      <EcommarceAdminDashboard />
+    <div className="flex h-screen w-full justify-center text-5xl">
+      Admin Dashboard
     </div>
   );
 };

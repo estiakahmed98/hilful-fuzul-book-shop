@@ -29,6 +29,7 @@ import {
   Search,
   LogOut,
   LogIn,
+  LayoutDashboard,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/components/ecommarce/CartContext";
@@ -42,11 +43,13 @@ export default function Header() {
   const { cartItems } = useCart();
   const { wishlistCount } = useWishlist();
   const [hasMounted, setHasMounted] = useState(false);
-  const { data: session, isPending } = useSession();
+  const [isPending, setIsPending] = useState(false);
+  const { data: session, status } = useSession();
   const router = useRouter();
 
   const handleAuthClick = async () => {
-    if (session) {
+    if (status === 'authenticated') {
+      setIsPending(true);
       try {
         await signOut();
         router.push('/');
@@ -183,6 +186,18 @@ export default function Header() {
                 )}
               </Button>
             </Link>
+
+            {hasMounted && session && (
+              <Link href={(session.user as any)?.role === 'admin' ? '/admin' : '/kitabghor/user/'}>
+                <Button
+                  variant="ghost"
+                  className="rounded-full bg-[#EEEFE0] bg-opacity-80 hover:bg-[#2C4A3B] hover:text-[#EEEFE0] text-[#819A91] transition-all duration-300 hover:scale-105 px-4"
+                >
+                  <LayoutDashboard className="h-4 w-4 mr-2" />
+                  ড্যাশবোর্ড
+                </Button>
+              </Link>
+            )}
 
             <Button
               onClick={handleAuthClick}
@@ -345,7 +360,19 @@ export default function Header() {
               )
             )}
             
-            {/* Mobile Auth Button */}
+            {session && (
+              <div className="p-4 border-t border-[#D1D8BE]">
+                <Link href={(session.user as any)?.role === 'admin' ? '/admin' : '/kitabghor/user/'} className="block w-full">
+                  <Button 
+                    className="w-full rounded-full bg-[#2C4A3B] hover:bg-[#1A3325] text-[#EEEFE0] font-semibold py-3 transition-all duration-300 hover:shadow-lg flex items-center justify-center space-x-2"
+                  >
+                    <LayoutDashboard className="h-4 w-4" />
+                    <span>ড্যাশবোর্ড</span>
+                  </Button>
+                </Link>
+              </div>
+            )}
+
             <div className="p-4 border-t border-[#D1D8BE]">
               <Button 
                 onClick={handleAuthClick}

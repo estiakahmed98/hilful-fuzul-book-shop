@@ -32,9 +32,11 @@ export default function CategoryBooks({ category }: { category: Category }) {
   const { addToCart } = useCart();
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
 
-  const categoryBooks = products.filter(
-    (product: Product) => product.category.id === category.id
-  );
+  // Show ALL products if category.id === "all"
+  const categoryBooks =
+    category.id === "all"
+      ? products // show all products if category is "all"
+      : products.filter((product: Product) => product.category.id === category.id);
 
   const displayBooks = categoryBooks.slice(0, 8);
 
@@ -68,14 +70,18 @@ export default function CategoryBooks({ category }: { category: Category }) {
         <div className="flex items-center gap-4">
           <div className="w-1 h-8 bg-gradient-to-b from-[#819A91] to-[#A7C1A8] rounded-full"></div>
           <div>
-            <h3 className="text-3xl font-bold text-gray-800">{category.name}</h3>
-            <p className="text-gray-600 mt-1">{categoryBooks.length}টি বই পাওয়া যাচ্ছে</p>
+            <h3 className="text-3xl font-bold text-gray-800">
+              {category.name}
+            </h3>
+            <p className="text-gray-600 mt-1">
+              {categoryBooks.length}টি বই পাওয়া যাচ্ছে
+            </p>
           </div>
         </div>
         {categoryBooks.length > 8 && (
           <Link href={`/kitabghor/categories/${category.id}`}>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               className="rounded-full border-[#819A91] text-[#819A91] hover:bg-[#819A91] hover:text-white transition-all duration-300 px-6 group"
             >
               সব দেখুন
@@ -90,7 +96,7 @@ export default function CategoryBooks({ category }: { category: Category }) {
         {displayBooks.map((book: Product, index) => {
           const enhancedBook = getBookWithEnhancements(book, index);
           const isWishlisted = isInWishlist(book.id);
-          
+
           return (
             <Card
               key={book.id}
@@ -122,15 +128,19 @@ export default function CategoryBooks({ category }: { category: Category }) {
                   toggleWishlist(book.id);
                 }}
                 className={`absolute top-3 right-3 z-10 p-2 rounded-full backdrop-blur-sm transition-all duration-300 ${
-                  isWishlisted 
-                    ? "bg-red-500/20 text-red-500" 
+                  isWishlisted
+                    ? "bg-red-500/20 text-red-500"
                     : "bg-white/80 text-gray-500 hover:bg-red-500/20 hover:text-red-500"
                 }`}
-                aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
+                aria-label={
+                  isWishlisted ? "Remove from wishlist" : "Add to wishlist"
+                }
               >
                 <Heart
                   className={`h-5 w-5 transition-all ${
-                    isWishlisted ? "scale-110 fill-current" : "group-hover:scale-110"
+                    isWishlisted
+                      ? "scale-110 fill-current"
+                      : "group-hover:scale-110"
                   }`}
                 />
               </button>
@@ -147,7 +157,7 @@ export default function CategoryBooks({ category }: { category: Category }) {
                   />
                   {/* Overlay */}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                  
+
                   {/* Quick View */}
                   <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
                     <div className="bg-white/90 backdrop-blur-sm rounded-full p-3 transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
@@ -179,7 +189,7 @@ export default function CategoryBooks({ category }: { category: Category }) {
 
                 {/* Book Title */}
                 <Link href={`kitabghor/books/${book.id}`}>
-                  <h4 className="font-bold text-lg mb-2 text-gray-800 hover:text-[#819A91] transition-colors duration-300 line-clamp-2 leading-tight group-hover:translate-x-1 transition-transform">
+                  <h4 className="font-bold text-lg mb-2 text-gray-800 hover:text-[#819A91] duration-300 line-clamp-2 leading-tight group-hover:translate-x-1 transition-transform">
                     {book.name}
                   </h4>
                 </Link>
@@ -234,11 +244,13 @@ export default function CategoryBooks({ category }: { category: Category }) {
       {categoryBooks.length > 8 && (
         <div className="text-center mt-10">
           <Link href={`/kitabghor/categories/${category.id}`}>
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               className="rounded-full bg-[#D1D8BE] hover:bg-[#819A91] text-gray-700 hover:text-white transition-all duration-300 px-8 py-6 group"
             >
-              <span className="mr-2">{categoryBooks.length - 8}+ আরও বই দেখুন</span>
+              <span className="mr-2">
+                {categoryBooks.length - 8}+ আরও বই দেখুন
+              </span>
               <Zap className="h-4 w-4 group-hover:rotate-180 transition-transform duration-500" />
             </Button>
           </Link>

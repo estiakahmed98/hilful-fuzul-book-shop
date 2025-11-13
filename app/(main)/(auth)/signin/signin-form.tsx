@@ -38,7 +38,7 @@ const SigninForm = () => {
   const [formError, setFormError] = useState("");
   const router = useRouter();
   const search = useSearchParams();
-  const callbackUrl = search.get("callbackUrl") || "/admin/dashboard";
+  const callbackUrl = search.get("callbackUrl") || "/admin";
   const { status } = useSession();
 
   const form = useForm<SignInValues>({

@@ -1,9 +1,11 @@
-const UserPage = async () => {
+"use client";
+
+const Page = () => {
   return (
     <div className="flex h-screen w-full justify-center text-5xl">
-      User Management
+      Order Management
     </div>
   );
 };
 
-export default UserPage;
+export default Page;

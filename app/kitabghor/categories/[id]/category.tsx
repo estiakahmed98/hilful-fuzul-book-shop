@@ -231,7 +231,7 @@ export default function CategoryPage({ params }: CategoryPageProps) {
 
                     {/* Book Title */}
                     <Link href={`/kitabghor/books/${book.id}`}>
-                      <h4 className="font-bold text-lg mb-2 text-gray-800 hover:text-[#819A91] transition-colors duration-300 line-clamp-2 leading-tight group-hover:translate-x-1 transition-transform">
+                      <h4 className="font-bold text-lg mb-2 text-gray-800 hover:text-[#819A91] duration-300 line-clamp-2 leading-tight group-hover:translate-x-1 transition-transform">
                         {book.name}
                       </h4>
                     </Link>

@@ -39,8 +39,8 @@ export default function Hero({ interval = 6000 }) {
   const [paused, setPaused] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
 
-  const timerRef = useRef(null);
-  const startX = useRef(null);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const startX = useRef<number | null>(null);
 
   const isPaused = paused || hovered;
 
@@ -79,7 +79,7 @@ export default function Hero({ interval = 6000 }) {
 
   // Keyboard nav
   useEffect(() => {
-    const onKey = (e) => {
+    const onKey = (e: KeyboardEvent) => {
       if (e.key === "ArrowRight") next();
       if (e.key === "ArrowLeft") prev();
     };
@@ -88,15 +88,15 @@ export default function Hero({ interval = 6000 }) {
   }, []);
 
   // Swipe nav
-  const onPointerDown = (e) => (startX.current = e.clientX);
-  const onPointerUp = (e) => {
+  const onPointerDown = (e: React.PointerEvent) => (startX.current = e.clientX);
+  const onPointerUp = (e: React.PointerEvent) => {
     if (startX.current == null) return;
     const dx = e.clientX - startX.current;
     if (Math.abs(dx) > 40) dx < 0 ? next() : prev();
     startX.current = null;
   };
 
-  const goTo = (i) => setCurrent(((i % heroData.length) + heroData.length) % heroData.length);
+  const goTo = (i: number) => setCurrent(((i % heroData.length) + heroData.length) % heroData.length);
   const prev = () => setCurrent((p) => (p - 1 + heroData.length) % heroData.length);
   const next = () => setCurrent((p) => (p + 1) % heroData.length);
 
