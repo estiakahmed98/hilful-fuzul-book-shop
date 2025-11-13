@@ -54,6 +54,24 @@ export default async function authMiddleware(request: NextRequest) {
   // Handle protected routes (admin and dashboard)
   const isProtectedRoute = pathname.startsWith('/admin') || pathname.startsWith('/dashboard');
 
+  // If user is not authenticated, redirect to signin
+  if (!session?.user) {
+    return NextResponse.redirect(new URL('/signin', request.url));
+  }
+
+  // Handle role-based redirection
+  if (session?.user) {
+    // If user is admin and trying to access dashboard, redirect to admin
+    if (session.user.role === 'admin' && pathname.startsWith('/dashboard')) {
+      return NextResponse.redirect(new URL('/admin', request.url));
+    }
+    
+    // If user is not admin and trying to access admin, redirect to dashboard
+    if (session.user.role !== 'admin' && pathname.startsWith('/admin')) {
+      return NextResponse.redirect(new URL('/dashboard', request.url));
+    }
+  }
+
   if (isProtectedRoute && !session) {
     const signInUrl = new URL('/signin', request.url);
     signInUrl.searchParams.set('returnUrl', pathname);

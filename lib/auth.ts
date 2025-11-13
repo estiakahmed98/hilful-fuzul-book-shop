@@ -1,6 +1,6 @@
-// lib/auth.ts — v4
+// lib/auth.ts
 import type { NextAuthOptions } from "next-auth";
-import Credentials from "next-auth/providers/credentials";
+import CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
@@ -8,31 +8,51 @@ import bcrypt from "bcryptjs";
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(db),
   session: { strategy: "jwt" },
+
   providers: [
-    Credentials({
+    CredentialsProvider({
       name: "Email & Password",
       credentials: { email: {}, password: {} },
-      async authorize(c) {
-        if (!c?.email || !c?.password) return null;
-        const user = await db.user.findUnique({ where: { email: c.email.toLowerCase().trim() } });
+
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) return null;
+
+        const user = await db.user.findUnique({
+          where: { email: credentials.email.toLowerCase().trim() },
+        });
+
         if (!user?.passwordHash) return null;
-        const ok = await bcrypt.compare(c.password, user.passwordHash);
+
+        const ok = await bcrypt.compare(credentials.password, user.passwordHash);
         if (!ok) return null;
-        return { id: user.id, email: user.email ?? undefined, name: user.name ?? undefined, role: user.role };
+
+        return {
+          id: user.id,
+          email: user.email ?? undefined,
+          name: user.name ?? undefined,
+          role: user.role ?? "user",
+        };
       },
     }),
   ],
+
   pages: {
-    signIn: "/signin", // ✅ তোমার কাস্টম সাইন-ইন রুট
-    
+    signIn: "/signin",
   },
+
   callbacks: {
     async jwt({ token, user }) {
-      if (user) { token.id = (user as any).id; token.role = (user as any).role ?? "USER"; }
+      if (user) {
+        token.id = (user as any).id;
+        token.role = (user as any).role ?? "user";
+      }
       return token;
     },
     async session({ session, token }) {
-      if (session.user) { (session.user as any).id = token.id; (session.user as any).role = token.role; }
+      if (session.user) {
+        (session.user as any).id = token.id;
+        (session.user as any).role = token.role;
+      }
       return session;
     },
   },

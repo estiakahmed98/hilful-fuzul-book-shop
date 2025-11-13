@@ -1,36 +1,29 @@
-import Header from "@/components/dashboard/header";
-import BookstoreSidebar from "@/components/ImpersonateSidebar";
 import { SidebarProvider } from "@/providers/sidebar-provider";
-// import TreeProvider from "@/providers/treeProvider";
-import { roleList } from "@/lib/_role-list";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
+import { authOptions } from "@/lib/auth";
+import { getServerSession } from "next-auth/next";
 import { redirect } from "next/navigation";
 
-const AdmindLayout = async ({ children }: { children: React.ReactNode }) => {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+const AdminLayout = async ({ children }: { children: React.ReactNode }) => {
+  const session = await getServerSession(authOptions);
 
-  if (!roleList.includes(session?.user?.role as string)) {
+  if (!session?.user) {
+    redirect("/signin");
+  }
+  if (session.user.role !== 'admin') {
     redirect("/dashboard");
   }
 
   return (
-    // <TreeProvider>
     <SidebarProvider>
       <div className="flex fixed size-full">
-        <BookstoreSidebar />
         <div className="w-full overflow-hidden">
-          <Header />
           <main className="h-[calc(100vh-80px)] overflow-y-auto p-2 lg:p-6 ">
             {children}
           </main>
         </div>
       </div>
     </SidebarProvider>
-    // </TreeProvider>
   );
 };
 
-export default AdmindLayout;
+export default AdminLayout;

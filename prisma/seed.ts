@@ -1,44 +1,39 @@
-// // import { db } from "../lib/db";
-// // import bcrypt from "bcryptjs";
-// // import { userData, User } from "../app/data/userData";
+import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
-// const users: Array<User> = Object.values(userData); // Convert object to array
+const db = new PrismaClient();
 
-// async function main() {
-//   const userCount = await db.user.count(); // Fix the table name to match Prisma schema
+async function main() {
+  const adminEmail = "admin@example.com";
+  const adminPassword = "Admin123!";
 
-//   if (!userCount) {
-//     // Hash passwords for each user and format data correctly
-//     const usersWithHashedPasswords = await Promise.all(
-//       users.map(async (user) => ({
-//         ...user,
-//         password: await bcrypt.hash(user.password, 10), // Hash the password
-//         emailVerified: user.emailVerified ? new Date(user.emailVerified) : null, // Ensure it's Date or null
-//         createdAt: new Date(user.createdAt), // Ensure Date format
-//         updatedAt: new Date(user.updatedAt), // Ensure Date format
-//       }))
-//     );
+  const existing = await db.user.findUnique({
+    where: { email: adminEmail },
+  });
 
-//     // Create users using `createMany`
-//     await db.user.createMany({
-//       // Ensure `user` matches Prisma schema
-//       data: usersWithHashedPasswords,
-//       skipDuplicates: true,
-//     });
+  if (existing) {
+    console.log("Admin already exists:", existing.email);
+    return;
+  }
 
-//     console.log("✅ User seeding was successful!");
-//   } else {
-//     console.log("✅ Users already exist. Skipping seeding.");
-//   }
-// }
+  const passwordHash = await bcrypt.hash(adminPassword, 10);
 
-// // Execute the script
-// main()
-//   .then(async () => {
-//     await db.$disconnect();
-//   })
-//   .catch(async (error) => {
-//     console.error("❌ Error seeding database:", error);
-//     await db.$disconnect();
-//     process.exit(1);
-//   });
+  const admin = await db.user.create({
+    data: {
+      name: "Super Admin",
+      email: adminEmail,
+      passwordHash,
+      role: "admin",
+    },
+  });
+
+  console.log("Admin created successfully:");
+  console.log("Email:", adminEmail);
+  console.log("Password:", adminPassword);
+}
+
+main()
+  .catch((e) => console.error(e))
+  .finally(async () => {
+    await db.$disconnect();
+  });
