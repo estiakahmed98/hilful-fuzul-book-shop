@@ -6,7 +6,7 @@ const KitabGhorLayout = async ({ children }: { children: React.ReactNode }) => {
   return (
     <ThemeProvider>
       <Header />
-      <main className="overflow-y-auto p-2 lg:p-6">{children}</main>
+      <main className="overflow-y-auto">{children}</main>
       <Footer />
     </ThemeProvider>
   );
