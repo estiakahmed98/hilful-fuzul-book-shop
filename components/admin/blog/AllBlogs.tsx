@@ -98,11 +98,11 @@ export default function AllBlogs() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+    <div className="p-2">
       <h1 className="text-3xl font-bold text-gray-900 mb-8 border-b pb-2">সাম্প্রতিক ব্লগ পোস্ট</h1>
 
       {/* Blog List Layout - Stacked, responsive, similar to the image */}
-      <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {blogs.map((blog) => (
           // Blog Card
           <Link key={blog.id} href={`/kitabghor/blogs/${blog.id}`} className="block">
