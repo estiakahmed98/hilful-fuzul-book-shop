@@ -15,7 +15,7 @@ model User {
   phone         String?
   address       Json?
   passwordHash  String?   @map("password")
-  emailVerified DateTime?                // <-- Boolean থেকে DateTime? করলাম
+  emailVerified DateTime?           
   image         String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -23,64 +23,6 @@ model User {
   banReason     String?
   banExpires    Int?
   note          String?
-
-  // NextAuth relations
-  accounts      Account[]
-  sessions      Session[]
-
-  // তোমার আগের রিলেশনগুলো একই থাকবে
-  CalendarEvent CalendarEvent[]
-
-  // Commerce
-  cart    Cart?
-  orders  Order[]
-  reviews Review[]
-}
-
-
-model Session {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique
-  userId       String
-  expires      DateTime
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model CalendarEvent {
-  id            String   @id @default(cuid())
-  googleEventId String   @unique
-  calendarId    String
-  title         String
-  description   String?
-  start         DateTime
-  end           DateTime
-  location      String?
-  creator       String
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  userId        String
-  user          User    @relation(fields: [userId], references: [id])
-}
-
-model Account {
-  id                 String  @id @default(cuid())
-  userId             String
-  type               String
-  provider           String
-  providerAccountId  String
-  refresh_token      String?
-  access_token       String?
-  expires_at         Int?
-  token_type         String?
-  scope              String?
-  id_token           String?
-  session_state      String?
-  // অতিরিক্ত ফিল্ড লাগলে এখানে নিজে যোগ করতে পারো
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([provider, providerAccountId])
 }
 
 
@@ -92,152 +34,94 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
-// ---------- Catalog (small) ----------
-model Book {
-  id         String      @id @default(cuid())
-  title      String
-  slug       String      @unique
-  cartItems  CartItem[]
-  isbn       String? @unique
-  price      Decimal @db.Decimal(10, 2)
-  stock      Int     @default(0)
-  coverImage String?
-  active     Boolean @default(true)
 
-  // relations
-  authors    BookAuthor[]
-  categories BookCategory[]
-  reviews    Review[]
-  orderItems OrderItem[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([title])
+model Writer {
+  id          Int       @id @default(autoincrement())
+  name        String
+  books_count Int
+  image       String?
+  products    Product[]
 }
 
-model Author {
-  id        String       @id @default(cuid())
-  name      String
-  books     BookAuthor[]
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
-
-  @@index([name])
+model Publisher {
+  id          Int       @id @default(autoincrement())
+  name        String
+  books_count Int
+  image       String?
+  products    Product[]
 }
 
 model Category {
-  id        String         @id @default(cuid())
-  name      String         @unique
-  books     BookCategory[]
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
+  id       Int       @id @default(autoincrement())
+  name     String
+  products Product[]
 }
 
-model BookAuthor {
-  bookId   String
-  authorId String
+model Product {
+  id             Int          @id @default(autoincrement())
+  name           String
+  writerId       Int?
+  publisherId    Int?
+  categoryId     Int
+  description    String
+  price          Decimal      @db.Decimal(10, 2)
+  original_price Decimal?     @db.Decimal(10, 2)
+  discount       Int?
+  stock          Int
+  available      Boolean      @default(true)
+  image          String?
+  pdf            String?
 
-  book   Book   @relation(fields: [bookId], references: [id], onDelete: Cascade)
-  author Author @relation(fields: [authorId], references: [id], onDelete: Cascade)
-
-  @@id([bookId, authorId])
-  @@index([authorId])
+  writer         Writer?      @relation(fields: [writerId], references: [id])
+  publisher      Publisher?   @relation(fields: [publisherId], references: [id])
+  category       Category     @relation(fields: [categoryId], references: [id])
+  orderItems     OrderItem[]
 }
 
-model BookCategory {
-  bookId     String
-  categoryId String
-
-  book     Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
-  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-
-  @@id([bookId, categoryId])
-  @@index([categoryId])
-}
-
-// ---------- Cart ----------
-model Cart {
-  id       String     @id @default(cuid())
-  userId   String?    @unique
-  currency String     @default("BDT")
-  items    CartItem[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
-}
-
-model CartItem {
-  id        String  @id @default(cuid())
-  cartId    String
-  bookId    String
-  quantity  Int     @default(1)
-  unitPrice Decimal @db.Decimal(10, 2) // snapshot
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  cart Cart @relation(fields: [cartId], references: [id], onDelete: Cascade)
-  book Book @relation(fields: [bookId], references: [id], onDelete: Restrict)
-
-  @@unique([cartId, bookId])
-}
-
-// ---------- Orders (compact) ----------
 model Order {
-  id          String      @id @default(cuid())
-  orderNumber String      @unique
-  userId      String?
-  status      String @default("PENDING")
-
-  subtotal Decimal @default(0) @db.Decimal(10, 2)
-  shipping Decimal @default(0) @db.Decimal(10, 2)
-  discount Decimal @default(0) @db.Decimal(10, 2)
-  total    Decimal @default(0) @db.Decimal(10, 2)
-  currency String  @default("BDT")
-
-  // very simple address snapshots
-  shippingAddress String
-  billingAddress  String?
-
-  items OrderItem[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  id               Int          @id @default(autoincrement())
+  name             String
+  email            String?
+  phone_number     String
+  alt_phone_number String?
+  country          String
+  district         String
+  area             String
+  address_details  String
+  total            Decimal      @db.Decimal(10, 2)
+  shipping_cost    Decimal      @db.Decimal(10, 2)
+  grand_total      Decimal      @db.Decimal(10, 2)
+  payment_method   String
+  orderItems       OrderItem[]
+  createdAt        DateTime     @default(now())
 }
 
 model OrderItem {
-  id        String  @id @default(cuid())
-  orderId   String
-  bookId    String
-  title     String // snapshot
-  sku       String? // optional snapshot
-  unitPrice Decimal @db.Decimal(10, 2)
-  quantity  Int     @default(1)
-  subtotal  Decimal @db.Decimal(10, 2)
+  id        Int      @id @default(autoincrement())
+  orderId   Int
+  productId Int
+  quantity  Int       @default(1)
+  price     Decimal   @db.Decimal(10, 2)
 
-  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  book  Book  @relation(fields: [bookId], references: [id], onDelete: Restrict)
-
-  @@index([bookId])
+  order     Order     @relation(fields: [orderId], references: [id])
+  product   Product   @relation(fields: [productId], references: [id])
 }
 
-// ---------- Social ----------
-model Review {
-  id        String   @id @default(cuid())
-  userId    String
-  bookId    String
-  rating    Int // 1..5
-  content   String?
-  createdAt DateTime @default(now())
+model Blog {
+  id       Int      @id @default(autoincrement())
+  title    String
+  summary  String
+  date     DateTime
+  author   String
+  image    String
+}
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  book Book @relation(fields: [bookId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, bookId])
-  @@index([bookId])
+model Contact {
+  id           Int       @id @default(autoincrement())
+  name         String
+  email        String
+  phone_number String?
+  message      String
+  created_at   DateTime  @default(now())
 }

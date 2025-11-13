@@ -6,7 +6,15 @@ import Image from "next/image";
 import { products } from "@/public/BookData";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { Heart, ShoppingCart, BookOpen, ArrowLeft, Star, User, PenTool } from "lucide-react";
+import {
+  Heart,
+  ShoppingCart,
+  BookOpen,
+  ArrowLeft,
+  Star,
+  User,
+  PenTool,
+} from "lucide-react";
 import { useCart } from "@/components/ecommarce/CartContext";
 import { useWishlist } from "@/components/ecommarce/WishlistContext";
 import { toast } from "sonner";
@@ -37,7 +45,7 @@ export default function AuthorBooksPage() {
 
   const getBookWithEnhancements = (book: any, index: number) => ({
     ...book,
-    rating: 4.2 + (index * 0.1) % 0.8,
+    rating: 4.2 + ((index * 0.1) % 0.8),
     isBestseller: index % 3 === 0,
     isNew: index % 4 === 0,
   });
@@ -47,8 +55,12 @@ export default function AuthorBooksPage() {
       <div className="min-h-screen bg-gradient-to-b from-[#EEEFE0]/30 to-white py-16 flex items-center justify-center">
         <div className="text-center">
           <User className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">কোন বই পাওয়া যায়নি</h2>
-          <p className="text-gray-600 mb-6">এই লেখকের কোন বই খুঁজে পাওয়া যায়নি</p>
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">
+            কোন বই পাওয়া যায়নি
+          </h2>
+          <p className="text-gray-600 mb-6">
+            এই লেখকের কোন বই খুঁজে পাওয়া যায়নি
+          </p>
           <Link href="/kitabghor/authors">
             <Button className="rounded-full bg-gradient-to-r from-[#819A91] to-[#A7C1A8] text-white px-8">
               সকল লেখক দেখুন
@@ -65,8 +77,8 @@ export default function AuthorBooksPage() {
         {/* Enhanced Header */}
         <div className="mb-8 md:mb-12">
           <div className="flex items-center gap-4 mb-6">
-            <Link 
-              href="/kitabghor/authors" 
+            <Link
+              href="/kitabghor/authors"
               className="flex items-center gap-2 text-[#819A91] hover:text-[#A7C1A8] transition-colors duration-300 group"
             >
               <ArrowLeft className="h-5 w-5 group-hover:-translate-x-1 transition-transform" />
@@ -97,7 +109,7 @@ export default function AuthorBooksPage() {
                 <p className="text-white/90 opacity-90 mb-4">
                   এই লেখকের সকল বইয়ের সংগ্রহ
                 </p>
-                
+
                 <div className="flex flex-wrap gap-6 text-sm justify-center md:justify-start">
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 bg-white rounded-full"></div>
@@ -122,7 +134,7 @@ export default function AuthorBooksPage() {
           {authorBooks.map((book, index) => {
             const enhancedBook = getBookWithEnhancements(book, index);
             const isWishlisted = isInWishlist(book.id);
-            
+
             return (
               <Card
                 key={book.id}
@@ -151,15 +163,19 @@ export default function AuthorBooksPage() {
                 <button
                   onClick={() => toggleWishlist(book.id)}
                   className={`absolute top-3 right-3 z-10 p-2 rounded-full backdrop-blur-sm transition-all duration-300 ${
-                    isWishlisted 
-                      ? "bg-red-500/20 text-red-500" 
+                    isWishlisted
+                      ? "bg-red-500/20 text-red-500"
                       : "bg-white/80 text-gray-500 hover:bg-red-500/20 hover:text-red-500"
                   }`}
-                  aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
+                  aria-label={
+                    isWishlisted ? "Remove from wishlist" : "Add to wishlist"
+                  }
                 >
                   <Heart
                     className={`h-5 w-5 transition-all ${
-                      isWishlisted ? "scale-110 fill-current" : "group-hover:scale-110"
+                      isWishlisted
+                        ? "scale-110 fill-current"
+                        : "group-hover:scale-110"
                     }`}
                   />
                 </button>
@@ -176,7 +192,7 @@ export default function AuthorBooksPage() {
                     />
                     {/* Overlay */}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                    
+
                     {/* Quick View */}
                     <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
                       <div className="bg-white/90 backdrop-blur-sm rounded-full p-3 transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
@@ -208,7 +224,7 @@ export default function AuthorBooksPage() {
 
                   {/* Book Title */}
                   <Link href={`/kitabghor/books/${book.id}`}>
-                    <h4 className="font-bold text-lg mb-2 text-gray-800 hover:text-[#819A91] transition-colors duration-300 line-clamp-2 leading-tight group-hover:translate-x-1 transition-transform">
+                    <h4 className="font-bold text-lg mb-2 text-gray-800 hover:text-[#819A91] duration-300 line-clamp-2 leading-tight group-hover:translate-x-1 transition-transform">
                       {book.name}
                     </h4>
                   </Link>
@@ -258,16 +274,20 @@ export default function AuthorBooksPage() {
 
         {/* Bottom Navigation */}
         <div className="flex justify-between items-center mt-12 pt-8 border-t border-[#D1D8BE]">
-          <Link 
-            href="/kitabghor/authors" 
+          <Link
+            href="/kitabghor/authors"
             className="flex items-center gap-2 text-[#819A91] hover:text-[#A7C1A8] transition-colors duration-300 group"
           >
             <ArrowLeft className="h-5 w-5 group-hover:-translate-x-1 transition-transform" />
             <span>সকল লেখকের বই দেখুন</span>
           </Link>
-          
+
           <div className="text-sm text-gray-600">
-            মোট <span className="font-semibold text-[#819A91]">{authorBooks.length}</span> টি বই
+            মোট{" "}
+            <span className="font-semibold text-[#819A91]">
+              {authorBooks.length}
+            </span>{" "}
+            টি বই
           </div>
         </div>
       </div>
