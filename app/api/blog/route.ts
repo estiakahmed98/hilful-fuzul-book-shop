@@ -3,14 +3,9 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
-// GET all blogs
+// GET all blogs - Public access
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session?.user || session.user.role !== 'admin') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
 
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
@@ -55,7 +50,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// CREATE new blog
+// CREATE new blog - Admin only
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);

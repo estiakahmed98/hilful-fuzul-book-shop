@@ -3,18 +3,13 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
-// GET single blog
+// GET single blog - Public access
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const { id } = await params;
+  const { id } = params;
   try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session?.user || session.user.role !== 'admin') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
 
     const blog = await prisma.blog.findUnique({
       where: { id: parseInt(params.id) }
@@ -34,13 +29,13 @@ export async function GET(
   }
 }
 
-// UPDATE blog
+// UPDATE blog - Admin only
 export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = await params;
+    const { id } = params;
     const session = await getServerSession(authOptions);
     
     if (!session?.user || session.user.role !== 'admin') {
@@ -87,13 +82,13 @@ export async function PUT(
   }
 }
 
-// DELETE blog
+// DELETE blog - Admin only
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = await params;
+    const { id } = params;
     const session = await getServerSession(authOptions);
     
     if (!session?.user || session.user.role !== 'admin') {
