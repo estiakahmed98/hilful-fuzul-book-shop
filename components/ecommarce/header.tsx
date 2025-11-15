@@ -48,29 +48,31 @@ export default function Header() {
   const router = useRouter();
 
   const handleAuthClick = async () => {
-    if (status === 'authenticated') {
+    if (status === "authenticated") {
       setIsPending(true);
       try {
         await signOut();
-        router.push('/');
+        router.push("/");
         router.refresh();
       } catch (error) {
-        console.error('Error signing out:', error);
+        console.error("Error signing out:", error);
+      } finally {
+        setIsPending(false);
       }
     } else {
-      router.push('/signin');
+      router.push("/signin");
     }
   };
 
   useEffect(() => {
     setHasMounted(true);
-    
+
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 20);
     };
-    
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
@@ -107,40 +109,50 @@ export default function Header() {
   const totalCartItems =
     cartItems?.reduce((sum, item) => sum + item.quantity, 0) || 0;
 
+  const userName = (session?.user as any)?.name || "ব্যবহারকারী";
+  const userRole = (session?.user as any)?.role || "user";
+
   return (
-    <header className={`sticky top-0 z-50 transition-all duration-300 ${
-      isScrolled 
-        ? 'bg-[#819A91] shadow-lg backdrop-blur-sm bg-opacity-35' 
-        : 'bg-gradient-to-r from-[#819A91] to-[#A7C1A8]'
-    }`}>
+    <header
+      className={`sticky top-0 z-50 transition-all duration-300 ${
+        isScrolled
+          ? "bg-[#819A91] shadow-lg backdrop-blur-sm bg-opacity-35"
+          : "bg-gradient-to-r from-[#819A91] to-[#A7C1A8]"
+      }`}
+    >
       {/* Top Bar */}
       <div className="bg-[#819A91] text-[#EEEFE0] py-1 px-4 text-sm">
         <div className="container mx-auto text-center">
-          বিনামূল্যে ডেলিভারি - ৫০০৳ 
+          বিনামূল্যে ডেলিভারি - ৫০০৳
         </div>
       </div>
 
-      <div className={`container mx-auto px-4 transition-all duration-300 ${
-        isScrolled ? 'py-2' : 'py-4'
-      }`}>
+      <div
+        className={`container mx-auto px-4 transition-all duration-300 ${
+          isScrolled ? "py-2" : "py-4"
+        }`}
+      >
         <div className="flex items-center justify-between">
           {/* Logo */}
-          <Link 
-            href="/" 
-            className="flex items-center space-x-3 group"
-          >
+          <Link href="/" className="flex items-center space-x-3 group">
             <div className="bg-[#EEEFE0] p-2 rounded-lg shadow-md group-hover:shadow-lg transition-shadow">
               <div className="w-8 h-8 bg-gradient-to-br from-[#2C4A3B] to-[#819A91] rounded-md flex items-center justify-center">
                 <Book className="h-5 w-5 text-[#EEEFE0]" />
               </div>
             </div>
             <div className="flex flex-col">
-              <span className={`font-bold transition-all duration-300 ${
-                isScrolled ? 'text-lg text-[#EEEFE0]' : 'text-xl text-[#EEEFE0]'
-              }`}>
+              <span
+                className={`font-bold transition-all duration-300 ${
+                  isScrolled
+                    ? "text-lg text-[#EEEFE0]"
+                    : "text-xl text-[#EEEFE0]"
+                }`}
+              >
                 হিলফুল-ফুযুল প্রকাশনী
               </span>
-              <span className="text-xs text-[#D1D8BE]">বইয়ের জন্য বিশ্বস্ত সঙ্গী</span>
+              <span className="text-xs text-[#D1D8BE]">
+                বইয়ের জন্য বিশ্বস্ত সঙ্গী
+              </span>
             </div>
           </Link>
 
@@ -159,8 +171,8 @@ export default function Header() {
           {/* Desktop Actions */}
           <div className="hidden md:flex items-center space-x-3">
             <Link href="/kitabghor/wishlist" className="relative">
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="icon"
                 className="rounded-full bg-[#EEEFE0] bg-opacity-80 hover:bg-[#2C4A3B] hover:text-[#EEEFE0] text-[#819A91] transition-all duration-300 hover:scale-105"
               >
@@ -172,10 +184,10 @@ export default function Header() {
                 )}
               </Button>
             </Link>
-            
+
             <Link href="/kitabghor/cart" className="relative">
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="icon"
                 className="rounded-full bg-[#EEEFE0] bg-opacity-80 hover:bg-[#2C4A3B] hover:text-[#EEEFE0] text-[#819A91] transition-all duration-300 hover:scale-105"
               >
@@ -188,8 +200,20 @@ export default function Header() {
               </Button>
             </Link>
 
+            {/* User name & role (desktop) */}
             {hasMounted && session && (
-              <Link href={(session.user as any)?.role === 'admin' ? '/admin' : '/kitabghor/user/'}>
+              <div className="flex flex-col items-end mr-1 leading-tight">
+                <span className="text-sm font-semibold text-[#EEEFE0]">
+                  {userName}
+                </span>
+                <span className="text-[11px] text-[#D1D8BE]">{userRole}</span>
+              </div>
+            )}
+
+            {hasMounted && session && (
+              <Link
+                href={userRole === "admin" ? "/admin" : "/kitabghor/user/"}
+              >
                 <Button
                   variant="ghost"
                   className="rounded-full bg-[#EEEFE0] bg-opacity-80 hover:bg-[#2C4A3B] hover:text-[#EEEFE0] text-[#819A91] transition-all duration-300 hover:scale-105 px-4"
@@ -333,7 +357,7 @@ export default function Header() {
                           className={`flex items-center px-10 py-3 border-t border-[#D1D8BE] border-opacity-50 transition-all duration-300 ${
                             pathname === child.href
                               ? "text-[#2C4A3B] font-semibold bg-white"
-                              : "text-gray-700 hover:text-[#2C4A3B] hover:bg-white hover:font-semibold"
+                              : "text-gray-700 hover:text-[#2C4A3B] hover:bg:white hover:font-semibold"
                           }`}
                           onClick={() => setIsMenuOpen(false)}
                         >
@@ -360,13 +384,26 @@ export default function Header() {
                 </Link>
               )
             )}
-            
-            {session && (
+
+            {/* User info (mobile) */}
+            {hasMounted && session && (
+              <div className="px-6 py-3 border-t border-[#D1D8BE] bg-[#EEEFE0] flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-[#2C4A3B]">
+                    {userName}
+                  </p>
+                  <p className="text-xs text-gray-600">{userRole}</p>
+                </div>
+              </div>
+            )}
+
+            {hasMounted && session && (
               <div className="p-4 border-t border-[#D1D8BE]">
-                <Link href={(session.user as any)?.role === 'admin' ? '/admin' : '/kitabghor/user/'} className="block w-full">
-                  <Button 
-                    className="w-full rounded-full bg-[#2C4A3B] hover:bg-[#1A3325] text-[#EEEFE0] font-semibold py-3 transition-all duration-300 hover:shadow-lg flex items-center justify-center space-x-2"
-                  >
+                <Link
+                  href={userRole === "admin" ? "/admin" : "/kitabghor/user/"}
+                  className="block w-full"
+                >
+                  <Button className="w-full rounded-full bg-[#2C4A3B] hover:bg-[#1A3325] text-[#EEEFE0] font-semibold py-3 transition-all duration-300 hover:shadow-lg flex items-center justify-center space-x-2">
                     <LayoutDashboard className="h-4 w-4" />
                     <span>ড্যাশবোর্ড</span>
                   </Button>
@@ -375,14 +412,14 @@ export default function Header() {
             )}
 
             <div className="p-4 border-t border-[#D1D8BE]">
-              <Button 
+              <Button
                 onClick={handleAuthClick}
                 disabled={isPending}
                 className="w-full rounded-full bg-[#2C4A3B] hover:bg-[#1A3325] text-[#EEEFE0] font-semibold py-3 transition-all duration-300 hover:shadow-lg flex items-center justify-center space-x-2"
               >
                 {isPending ? (
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                ) : session ? (
+                ) : hasMounted && session ? (
                   <>
                     <LogOut className="h-4 w-4" />
                     <span>লগআউট</span>
