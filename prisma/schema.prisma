@@ -15,7 +15,7 @@ model User {
   phone         String?
   address       Json?
   passwordHash  String?   @map("password")
-  emailVerified DateTime?           
+  emailVerified DateTime?
   image         String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -23,12 +23,18 @@ model User {
   banReason     String?
   banExpires    Int?
   note          String?
+
+  orders   Order[]
+  wishlist Wishlist[]
+  cart     CartItem[]
+  reviews  Review[]
 }
 
 model VerificationToken {
   identifier String
   token      String   @unique
   expires    DateTime
+
   @@unique([identifier, token])
 }
 
@@ -53,38 +59,64 @@ model Publisher {
 }
 
 model Category {
-  id       Int       @id @default(autoincrement())
-  name     String
-  products Product[]
+  id        Int       @id @default(autoincrement())
+  name      String
+  products  Product[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 }
 
 model Product {
-  id             Int          @id @default(autoincrement())
+  id             Int      @id @default(autoincrement())
   name           String
+  slug           String   @unique
   writerId       Int?
   publisherId    Int?
   categoryId     Int
-  description    String
-  price          Decimal      @db.Decimal(10, 2)
-  original_price Decimal?     @db.Decimal(10, 2)
-  discount       Int?
-  stock          Int
-  available      Boolean      @default(true)
-  image          String?
-  pdf            String?
+  description    String   @db.Text
+  price          Decimal  @db.Decimal(10, 2)
+  original_price Decimal? @db.Decimal(10, 2)
+  discount       Int?     @default(0)
+  stock          Int      @default(0)
+  available      Boolean  @default(true)
 
-  writer         Writer?      @relation(fields: [writerId], references: [id])
-  publisher      Publisher?   @relation(fields: [publisherId], references: [id])
-  category       Category     @relation(fields: [categoryId], references: [id])
-  orderItems     OrderItem[]
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  image   String?
+  gallery String[] // multiple images
+  pdf     String?
+
+  soldCount   Int   @default(0)
+  ratingAvg   Float @default(0)
+  ratingCount Int   @default(0)
+
+  writer     Writer?     @relation(fields: [writerId], references: [id])
+  publisher  Publisher?  @relation(fields: [publisherId], references: [id])
+  category   Category    @relation(fields: [categoryId], references: [id])
+  orderItems OrderItem[]
+  wishlist   Wishlist[]
+  reviews    Review[]
+  cartItems  CartItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  UNPAID
+  PAID
 }
 
 model Order {
-  id               Int          @id @default(autoincrement())
+  id               Int     @id @default(autoincrement())
+  userId           String?
   name             String
   email            String?
   phone_number     String
@@ -93,27 +125,69 @@ model Order {
   district         String
   area             String
   address_details  String
-  order_date       DateTime     @default(now())
-  total            Decimal      @db.Decimal(10, 2)
-  shipping_cost    Decimal      @db.Decimal(10, 2)
-  grand_total      Decimal      @db.Decimal(10, 2)
-  payment_method   String
-  orderItems       OrderItem[]
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
+
+  payment_method String
+  order_date     DateTime @default(now())
+  total          Decimal  @db.Decimal(10, 2)
+  shipping_cost  Decimal  @db.Decimal(10, 2)
+  grand_total    Decimal  @db.Decimal(10, 2)
+
+  status        OrderStatus   @default(PENDING)
+  paymentStatus PaymentStatus @default(UNPAID)
+  transactionId String?
+
+  user       User?       @relation(fields: [userId], references: [id])
+  orderItems OrderItem[]
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
 }
 
 model OrderItem {
-  id        Int      @id @default(autoincrement())
+  id        Int     @id @default(autoincrement())
   orderId   Int
   productId Int
-  quantity  Int       @default(1)
-  price     Decimal   @db.Decimal(10, 2)
+  quantity  Int     @default(1)
+  price     Decimal @db.Decimal(10, 2)
 
-  order     Order     @relation(fields: [orderId], references: [id])
-  product   Product   @relation(fields: [productId], references: [id])
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  order   Order   @relation(fields: [orderId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Review {
+  id        Int     @id @default(autoincrement())
+  rating    Int
+  comment   String?
+  productId Int
+  userId    String
+
+  product Product @relation(fields: [productId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+model CartItem {
+  id        Int    @id @default(autoincrement())
+  userId    String
+  productId Int
+  quantity  Int    @default(1)
+
+  user    User    @relation(fields: [userId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+}
+
+model Wishlist {
+  id        Int    @id @default(autoincrement())
+  userId    String
+  productId Int
+
+  user    User    @relation(fields: [userId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  @@unique([userId, productId])
 }
 
 model Blog {
@@ -126,14 +200,4 @@ model Blog {
   image     String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-}
-
-model Contact {
-  id           Int       @id @default(autoincrement())
-  name         String
-  email        String
-  phone_number String?
-  message      String
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
 }
