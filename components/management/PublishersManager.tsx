@@ -90,10 +90,14 @@ export default function PublishersManager({
     <div className="min-h-screen p-6 bg-gradient-to-br from-[#EEEFE0] to-[#D1D8BE]/30">
       {/* Header */}
       <div className="text-center mb-12">
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-[#2C4A3B] to-[#819A91] bg-clip-text text-transparent">
-          প্রকাশক ব্যবস্থাপনা
-        </h1>
-        <p className="text-gray-600 mt-2">
+        <div className="flex items-center justify-center gap-3 mb-4">
+          <div className="w-2 h-10 bg-gradient-to-b from-[#2C4A3B] to-[#819A91] rounded-full"></div>
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-[#2C4A3B] to-[#819A91] bg-clip-text text-transparent">
+            প্রকাশক ব্যবস্থাপনা
+          </h1>
+          <div className="w-2 h-10 bg-gradient-to-b from-[#819A91] to-[#2C4A3B] rounded-full"></div>
+        </div>
+        <p className="text-gray-600 text-lg max-w-2xl mx-auto">
           প্রকাশকদের তালিকা দেখুন, যোগ করুন ও ম্যানেজ করুন
         </p>
       </div>
@@ -115,7 +119,10 @@ export default function PublishersManager({
             <div>
               <p className="text-gray-600 text-sm">মোট বই সংখ্যা</p>
               <h2 className="text-2xl font-bold">
-                {publishers.reduce((a: number, p: any) => a + (p.products?.length || 0),  0)}
+                {publishers.reduce(
+                  (a: number, p: any) => a + (p.products?.length || 0),
+                  0
+                )}
               </h2>
             </div>
             <BookOpen className="h-10 w-10 text-[#2C4A3B]" />
@@ -158,7 +165,9 @@ export default function PublishersManager({
 
               <CardContent className="p-5">
                 <h3 className="text-xl font-bold">{pub.name}</h3>
-                <p className="text-gray-600 mt-1">Total Books: {(pub.products || []).length}</p>
+                <p className="text-gray-600 mt-1">
+                  Total Books: {(pub.products || []).length}
+                </p>
 
                 <div className="flex gap-3 mt-4">
                   <Button

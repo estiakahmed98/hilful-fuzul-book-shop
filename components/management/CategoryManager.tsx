@@ -84,11 +84,19 @@ export default function CategoryManager({
   };
 
   return (
-    <div className="p-6">
+    <div className="min-h-screen p-6 bg-gradient-to-br from-[#EEEFE0] to-[#D1D8BE]/30">
       {/* Header */}
       <div className="text-center mb-12">
-        <h1 className="text-4xl font-bold">ক্যাটাগরি ব্যবস্থাপনা</h1>
-        <p className="text-gray-600 mt-2">আপনার লাইব্রেরির ক্যাটাগরি পরিচালনা করুন</p>
+        <div className="flex items-center justify-center gap-3 mb-4">
+          <div className="w-2 h-10 bg-gradient-to-b from-[#2C4A3B] to-[#819A91] rounded-full"></div>
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-[#2C4A3B] to-[#819A91] bg-clip-text text-transparent">
+            ক্যাটাগরি ব্যবস্থাপনা
+          </h1>
+          <div className="w-2 h-10 bg-gradient-to-b from-[#819A91] to-[#2C4A3B] rounded-full"></div>
+        </div>
+        <p className="text-gray-600 text-lg max-w-2xl mx-auto">
+          ক্যাটাগরি দেখুন, যোগ করুন ও ম্যানেজ করুন
+        </p>
       </div>
 
       {/* Top Bar */}
@@ -118,10 +126,7 @@ export default function CategoryManager({
             <Card key={cat.id} className="shadow">
               <div className="h-40 bg-gray-100 flex justify-center items-center">
                 {cat.image ? (
-                  <img
-                    src={cat.image}
-                    className="h-full w-full object-cover"
-                  />
+                  <img src={cat.image} className="h-full w-full object-cover" />
                 ) : (
                   <Grid2X2 className="h-16 w-16 text-gray-400" />
                 )}
@@ -129,7 +134,9 @@ export default function CategoryManager({
 
               <CardContent className="p-5">
                 <h3 className="text-xl font-semibold">{cat.name}</h3>
-                <p className="text-gray-500 text-sm mb-4">Total Products: {(cat.products || []).length}</p>
+                <p className="text-gray-500 text-sm mb-4">
+                  Total Products: {(cat.products || []).length}
+                </p>
 
                 <div className="flex gap-2">
                   <Button

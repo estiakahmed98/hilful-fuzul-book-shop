@@ -86,8 +86,6 @@ export default function WritersManager({
     }
   };
 
-  const getRandomRating = () => Math.random() * 2 + 3;
-
   const handleDeleteLocal = (id: number) => {
     if (confirm("আপনি কি নিশ্চিত যে আপনি এই লেখকটি মুছে ফেলতে চান?")) {
       onDelete(id);
@@ -208,7 +206,6 @@ export default function WritersManager({
                 </div>
 
                 <CardContent className="p-5">
-
                   <h3 className="font-bold text-xl text-gray-800 mb-2">
                     {writer.name}
                   </h3>
