@@ -3,7 +3,17 @@
 import { useCart } from "@/components/ecommarce/CartContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Trash2, Plus, Minus, ShoppingCart, ArrowRight, Tag, Truck, Shield, ArrowLeft } from "lucide-react";
+import {
+  Trash2,
+  Plus,
+  Minus,
+  ShoppingCart,
+  ArrowRight,
+  Tag,
+  Truck,
+  Shield,
+  ArrowLeft,
+} from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { useState, useEffect } from "react";
@@ -17,7 +27,7 @@ export default function CartPage() {
   const { cartItems, removeFromCart, updateQuantity, clearCart } = useCart();
 
   // ✅ NextAuth session
-  const { status } = useSession(); // status: "loading" | "authenticated" | "unauthenticated"
+  const { status } = useSession(); // "loading" | "authenticated" | "unauthenticated"
   const isAuthenticated = status === "authenticated";
 
   const router = useRouter();
@@ -32,20 +42,101 @@ export default function CartPage() {
 
   if (!hasMounted) return null;
 
+  // ✅ Checkout -> login if needed
   const handleCheckout = async () => {
     if (!isAuthenticated) {
-      // preserve cart & target route for after login
       sessionStorage.setItem("pendingCheckout", JSON.stringify(cartItems));
       sessionStorage.setItem("redirectAfterLogin", "/kitabghor/checkout");
       toast.info("চেকআউট করতে লগইন করুন");
 
-      // ✅ Use NextAuth's signIn so it respects pages.signIn = "/auth/sign-in"
-      // and returns back to checkout after successful auth
       await signIn(undefined, { callbackUrl: "/kitabghor/checkout" });
       return;
     }
 
     router.push("/kitabghor/checkout");
+  };
+
+  // ✅ Clear cart -> API + context
+  const handleClearCart = async () => {
+    if (cartItems.length === 0) return;
+
+    try {
+      if (isAuthenticated) {
+        const res = await fetch("/api/cart", {
+          method: "DELETE",
+        });
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => null);
+          console.error("Clear cart failed:", data || res.statusText);
+          toast.error("কার্ট খালি করতে সমস্যা হয়েছে");
+          return;
+        }
+      }
+
+      clearCart();
+      toast.success("কার্ট খালি করা হয়েছে");
+    } catch (error) {
+      console.error("Error clearing cart:", error);
+      toast.error("কার্ট খালি করতে সমস্যা হয়েছে");
+    }
+  };
+
+  // ✅ Remove single item -> API + context
+  const handleRemoveItem = async (itemId: string | number) => {
+    try {
+      if (isAuthenticated) {
+        const res = await fetch(`/api/cart/${itemId}`, {
+          method: "DELETE",
+        });
+
+        // 404 holeo local theke remove kore dibo (desync fix)
+        if (!res.ok && res.status !== 404) {
+          const data = await res.json().catch(() => null);
+          console.error("Remove cart item failed:", data || res.statusText);
+          toast.error("কার্ট থেকে বই সরাতে সমস্যা হয়েছে");
+          return;
+        }
+      }
+
+      removeFromCart(itemId);
+      toast.success("কার্ট থেকে বই সরানো হয়েছে");
+    } catch (error) {
+      console.error("Error removing cart item:", error);
+      toast.error("কার্ট থেকে বই সরাতে সমস্যা হয়েছে");
+    }
+  };
+
+  // ✅ Quantity update -> API + context
+  const handleUpdateQuantity = async (
+    itemId: string | number,
+    newQuantity: number
+  ) => {
+    if (newQuantity < 1) return;
+
+    try {
+      if (isAuthenticated) {
+        const res = await fetch(`/api/cart/${itemId}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ quantity: newQuantity }),
+        });
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => null);
+          console.error("Update quantity failed:", data || res.statusText);
+          toast.error("পরিমাণ পরিবর্তনে সমস্যা হয়েছে");
+          return;
+        }
+      }
+
+      updateQuantity(itemId, newQuantity);
+    } catch (error) {
+      console.error("Error updating quantity:", error);
+      toast.error("পরিমাণ পরিবর্তনে সমস্যা হয়েছে");
+    }
   };
 
   const applyCoupon = () => {
@@ -106,7 +197,9 @@ export default function CartPage() {
         {cartItems.length === 0 ? (
           <div className="text-center py-16 bg-white rounded-2xl shadow-lg">
             <ShoppingCart className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">আপনার কার্ট খালি</h2>
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">
+              আপনার কার্ট খালি
+            </h2>
             <p className="text-gray-600 mb-8 max-w-md mx-auto">
               আপনার কার্টে কোন পণ্য নেই। কিছু পণ্য যোগ করতে শপিং চালিয়ে যান।
             </p>
@@ -130,7 +223,7 @@ export default function CartPage() {
                   <Button
                     variant="outline"
                     className="rounded-full border-red-200 text-red-500 hover:bg-red-500 hover:text-white transition-all duration-300"
-                    onClick={clearCart}
+                    onClick={handleClearCart}
                   >
                     কার্ট খালি করুন
                   </Button>
@@ -159,7 +252,9 @@ export default function CartPage() {
                         <div className="flex-1">
                           <div className="flex flex-col sm:flex-row sm:justify-between gap-3">
                             <div className="flex-1">
-                              <Link href={`/kitabghor/books/${item.productId}`}>
+                              <Link
+                                href={`/kitabghor/books/${item.productId}`}
+                              >
                                 <h3 className="font-bold text-lg text-gray-800 hover:text-[#819A91] transition-colors duration-300 line-clamp-2">
                                   {item.name}
                                 </h3>
@@ -183,7 +278,12 @@ export default function CartPage() {
                             <div className="flex items-center border border-[#D1D8BE] rounded-xl overflow-hidden">
                               <button
                                 className="p-2 hover:bg-[#819A91] hover:text-white transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed"
-                                onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                                onClick={() =>
+                                  handleUpdateQuantity(
+                                    item.id,
+                                    item.quantity - 1
+                                  )
+                                }
                                 disabled={item.quantity <= 1}
                               >
                                 <Minus className="h-4 w-4" />
@@ -193,14 +293,19 @@ export default function CartPage() {
                               </span>
                               <button
                                 className="p-2 hover:bg-[#819A91] hover:text-white transition-all duration-300"
-                                onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                                onClick={() =>
+                                  handleUpdateQuantity(
+                                    item.id,
+                                    item.quantity + 1
+                                  )
+                                }
                               >
                                 <Plus className="h-4 w-4" />
                               </button>
                             </div>
                             <button
                               className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all duration-300 group/delete"
-                              onClick={() => removeFromCart(item.id)}
+                              onClick={() => handleRemoveItem(item.id)}
                             >
                               <Trash2 className="h-5 w-5 group-hover/delete:scale-110 transition-transform" />
                             </button>
@@ -225,7 +330,9 @@ export default function CartPage() {
                 <div className="space-y-3 mb-6">
                   <div className="flex justify-between items-center py-2">
                     <span className="text-gray-600">সাবটোটাল</span>
-                    <span className="font-semibold">৳{subtotal.toFixed(2)}</span>
+                    <span className="font-semibold">
+                      ৳{subtotal.toFixed(2)}
+                    </span>
                   </div>
 
                   {discount > 0 && (
@@ -234,7 +341,9 @@ export default function CartPage() {
                         <Tag className="h-4 w-4" />
                         ডিসকাউন্ট ({discount}%)
                       </span>
-                      <span className="font-semibold">-৳{discountAmount.toFixed(2)}</span>
+                      <span className="font-semibold">
+                        -৳{discountAmount.toFixed(2)}
+                      </span>
                     </div>
                   )}
 
@@ -243,8 +352,14 @@ export default function CartPage() {
                       <Truck className="h-4 w-4 text-[#819A91]" />
                       শিপিং
                     </span>
-                    <span className={`${shippingCost === 0 ? "text-green-600" : ""} font-semibold`}>
-                      {shippingCost === 0 ? "ফ্রি" : `৳${shippingCost.toFixed(2)}`}
+                    <span
+                      className={`${
+                        shippingCost === 0 ? "text-green-600" : ""
+                      } font-semibold`}
+                    >
+                      {shippingCost === 0
+                        ? "ফ্রি"
+                        : `৳${shippingCost.toFixed(2)}`}
                     </span>
                   </div>
 
@@ -257,7 +372,9 @@ export default function CartPage() {
                   <div className="border-t border-[#D1D8BE] pt-3 mt-2">
                     <div className="flex justify-between items-center font-bold text-lg">
                       <span>মোট</span>
-                      <span className="text-[#819A91]">৳{total.toFixed(2)}</span>
+                      <span className="text-[#819A91]">
+                        ৳{total.toFixed(2)}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -279,7 +396,8 @@ export default function CartPage() {
                     </Button>
                   </div>
                   <div className="text-xs text-gray-500 text-center">
-                    ট্রাই করুন: <strong>DISCOUNT20</strong> বা <strong>WELCOME10</strong>
+                    ট্রাই করুন: <strong>DISCOUNT20</strong> বা{" "}
+                    <strong>WELCOME10</strong>
                   </div>
                 </div>
 
