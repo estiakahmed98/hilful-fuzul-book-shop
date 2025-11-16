@@ -15,7 +15,6 @@ export async function POST(req: Request) {
   const writer = await prisma.writer.create({
     data: {
       name: data.name,
-      books_count: data.books_count,
       image: data.image ?? null,
     },
   });

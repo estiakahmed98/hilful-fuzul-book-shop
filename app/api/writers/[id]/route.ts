@@ -26,7 +26,6 @@ export async function PUT(
     where: { id: Number(params.id) },
     data: {
       name: data.name,
-      books_count: data.books_count,
       image: data.image ?? null,
     },
   });

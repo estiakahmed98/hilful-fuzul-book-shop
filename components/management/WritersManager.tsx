@@ -32,7 +32,6 @@ export default function WritersManager({
 
   const [form, setForm] = useState({
     name: "",
-    books_count: "",
     image: "",
   });
 
@@ -42,7 +41,7 @@ export default function WritersManager({
 
   const openAddModal = () => {
     setEditing(null);
-    setForm({ name: "", books_count: "", image: "" });
+    setForm({ name: "", image: "" });
     setModalOpen(true);
   };
 
@@ -50,7 +49,6 @@ export default function WritersManager({
     setEditing(writer);
     setForm({
       name: writer.name,
-      books_count: writer.books_count.toString(),
       image: writer.image || "",
     });
     setModalOpen(true);
@@ -68,29 +66,25 @@ export default function WritersManager({
       if (editing) {
         await onUpdate(editing.id, {
           name: form.name,
-          books_count: Number(form.books_count),
           image: form.image,
         });
         toast.success("লেখক সফলভাবে আপডেট করা হয়েছে");
       } else {
         await onCreate({
           name: form.name,
-          books_count: Number(form.books_count),
           image: form.image,
         });
         toast.success("নতুন লেখক সফলভাবে যোগ করা হয়েছে");
       }
 
       setModalOpen(false);
-      setForm({ name: "", books_count: "", image: "" });
+      setForm({ name: "", image: "" });
     } catch {
       toast.error("কিছু একটা সমস্যা হয়েছে");
     } finally {
       setSubmitting(false);
     }
   };
-
-  const getRandomRating = () => Math.random() * 2 + 3;
 
   const handleDeleteLocal = (id: number) => {
     if (confirm("আপনি কি নিশ্চিত যে আপনি এই লেখকটি মুছে ফেলতে চান?")) {
@@ -197,7 +191,7 @@ export default function WritersManager({
                     <Button
                       size="sm"
                       onClick={() => openEditModal(writer)}
-                      className="rounded-full bg-white/90 shadow"
+                      className="rounded-full text-gray-600 hover:text-white bg-white/90 shadow"
                     >
                       <Edit3 className="h-3 w-3" />
                     </Button>
@@ -212,12 +206,6 @@ export default function WritersManager({
                 </div>
 
                 <CardContent className="p-5">
-                  <div className="flex items-center mb-2">
-                    <span className="text-sm text-gray-600">
-                      Books: {writer.books_count || 0}
-                    </span>
-                  </div>
-
                   <h3 className="font-bold text-xl text-gray-800 mb-2">
                     {writer.name}
                   </h3>
@@ -228,14 +216,14 @@ export default function WritersManager({
                     <Button
                       onClick={() => openEditModal(writer)}
                       variant="outline"
-                      className="w-full border-[#819A91] text-[#819A91]"
+                      className="w-full bg-[#52aa8a] text-white hover:bg-[#2d6852] hover:text-white"
                     >
                       <Edit3 className="h-3 w-3 mr-1" /> এডিট
                     </Button>
                     <Button
                       onClick={() => handleDeleteLocal(writer.id)}
                       variant="outline"
-                      className="border-red-500 text-red-500"
+                      className="border-red-500 text-red-500 hover:bg-red-500 hover:text-white"
                     >
                       <Trash2 className="h-3 w-3" />
                     </Button>
