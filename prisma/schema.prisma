@@ -40,7 +40,7 @@ model VerificationToken {
 
 model Writer {
   id          Int       @id @default(autoincrement())
-  name        String
+  name        String  @unique
   books_count Int
   image       String?
   products    Product[]
@@ -50,7 +50,7 @@ model Writer {
 
 model Publisher {
   id          Int       @id @default(autoincrement())
-  name        String
+  name        String  @unique
   books_count Int
   image       String?
   products    Product[]
@@ -60,7 +60,7 @@ model Publisher {
 
 model Category {
   id        Int       @id @default(autoincrement())
-  name      String
+  name      String  @unique
   products  Product[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt

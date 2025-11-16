@@ -8,6 +8,7 @@ import { Heart, ShoppingCart, Star, Zap, BookOpen } from "lucide-react";
 import { useCart } from "@/components/ecommarce/CartContext";
 import { useWishlist } from "@/components/ecommarce/WishlistContext";
 import { toast } from "sonner";
+import { useSession } from "next-auth/react";
 
 interface Category {
   id: string | number;
@@ -31,12 +32,15 @@ interface Product {
 export default function CategoryBooks({ category }: { category: Category }) {
   const { addToCart } = useCart();
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
+  const { data: session } = useSession();
 
   // Show ALL products if category.id === "all"
   const categoryBooks =
     category.id === "all"
-      ? products // show all products if category is "all"
-      : products.filter((product: Product) => product.category.id === category.id);
+      ? products
+      : products.filter(
+          (product: Product) => product.category.id === category.id
+        );
 
   const displayBooks = categoryBooks.slice(0, 8);
 
@@ -50,9 +54,47 @@ export default function CategoryBooks({ category }: { category: Category }) {
     }
   };
 
-  const handleAddToCart = (book: Product) => {
-    addToCart(book.id);
-    toast.success(`"${book.name}" কার্টে যোগ করা হয়েছে`);
+  const handleAddToCart = async (book: Product) => {
+    try {
+      if (!session?.user) {
+        toast.error("কার্টে যোগ করতে আগে লগইন করুন");
+        return;
+      }
+
+      const res = await fetch("/api/cart", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          productId: Number(book.id),
+          quantity: 1,
+        }),
+      });
+
+      if (res.status === 401) {
+        toast.error("কার্টে যোগ করতে আগে লগইন করুন");
+        return;
+      }
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        console.error("Add to cart failed:", data || res.statusText);
+        toast.error("কার্টে যোগ করা যায়নি, আবার চেষ্টা করুন");
+        return;
+      }
+
+      // API theke chaile response use korte paro
+      // const cartItem = await res.json();
+
+      // local context update (jodi useCart local state rakhe)
+      addToCart(book.id);
+
+      toast.success(`"${book.name}" কার্টে যোগ করা হয়েছে`);
+    } catch (error) {
+      console.error("Error adding to cart:", error);
+      toast.error("কার্টে যোগ করতে সমস্যা হয়েছে");
+    }
   };
 
   // Generate random ratings and badges for demo
@@ -225,7 +267,7 @@ export default function CategoryBooks({ category }: { category: Category }) {
                   className="w-full rounded-xl py-6 bg-gradient-to-r from-[#2C4A3B] to-[#2C4A3B] hover:from-[#819A91] hover:to-[#819A91] text-white font-semibold border-0 shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 group/btn"
                   onClick={(e) => {
                     e.preventDefault();
-                    handleAddToCart(book);
+                    void handleAddToCart(book);
                   }}
                 >
                   <ShoppingCart className="mr-2 h-4 w-4 group-hover/btn:scale-110 transition-transform" />
