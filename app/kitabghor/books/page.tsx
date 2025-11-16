@@ -219,7 +219,7 @@ export default function AllBooksPage() {
 
                       {/* Book Title */}
                       <Link href={`/kitabghor/books/${book.id}`}>
-                        <h4 className="font-bold text-base sm:text-lg mb-1 sm:mb-2 text-gray-800 hover:text-[#819A91] transition-colors duration-300 line-clamp-2 leading-tight group-hover:translate-x-1 transition-transform min-h-[2.5rem] sm:min-h-[3rem]">
+                        <h4 className="font-bold text-base sm:text-lg mb-1 sm:mb-2 text-gray-800 hover:text-[#819A91] duration-300 line-clamp-2 leading-tight group-hover:translate-x-1 transition-transform min-h-[2.5rem] sm:min-h-[3rem]">
                           {book.name}
                         </h4>
                       </Link>
