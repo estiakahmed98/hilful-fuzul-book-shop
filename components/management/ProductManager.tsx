@@ -1,0 +1,253 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Plus,
+  Edit3,
+  Trash2,
+  Search,
+  BookOpen,
+  Image as ImageIcon,
+  Layers,
+  FileText,
+} from "lucide-react";
+import { toast } from "sonner";
+import ProductAddModal from "./ProductAddModal";
+
+export default function ProductManager({
+  products,
+  loading,
+  onCreate,
+  onUpdate,
+  onDelete,
+  writers,
+  publishers,
+  categories,
+}: any) {
+  const [search, setSearch] = useState("");
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState(null);
+
+  const filtered = products?.filter((p: any) =>
+    p.name.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const openAdd = () => {
+    setEditing(null);
+    setModalOpen(true);
+  };
+
+  const openEdit = (product: any) => {
+    setEditing(product);
+    setModalOpen(true);
+  };
+
+  const deleteLocal = (id: number) => {
+    if (confirm("Are you sure you want to delete this product?")) {
+      onDelete(id);
+      toast.success("Product deleted");
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-[#EEEFE0] to-[#D1D8BE]/30 p-6">
+      <div>
+        {/* HEADER */}
+        <div className="text-center mb-12">
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <div className="w-2 h-10 bg-gradient-to-b from-[#2C4A3B] to-[#819A91] rounded-full"></div>
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-[#2C4A3B] to-[#819A91] bg-clip-text text-transparent">
+              Product Management
+            </h1>
+            <div className="w-2 h-10 bg-gradient-to-b from-[#819A91] to-[#2C4A3B] rounded-full"></div>
+          </div>
+          <p className="text-gray-600 text-lg max-w-2xl mx-auto">
+            Manage all books, authors, publishers & categories with full control
+          </p>
+        </div>
+
+        {/* STATS */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <Card className="bg-white/80 shadow-lg rounded-2xl">
+            <CardContent className="p-6 flex justify-between items-center">
+              <div>
+                <p className="text-sm text-gray-600">Total Products</p>
+                <h3 className="text-2xl font-bold">{products?.length || 0}</h3>
+              </div>
+              <div className="p-3 bg-gradient-to-r from-[#819A91] to-[#A7C1A8] rounded-full">
+                <Layers className="h-6 w-6 text-white" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white/80 shadow-lg rounded-2xl">
+            <CardContent className="p-6 flex justify-between items-center">
+              <div>
+                <p className="text-sm text-gray-600">Total Authors</p>
+                <h3 className="text-2xl font-bold">{writers.length}</h3>
+              </div>
+              <div className="p-3 bg-gradient-to-r from-[#2C4A3B] to-[#819A91] rounded-full">
+                <BookOpen className="h-6 w-6 text-white" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white/80 shadow-lg rounded-2xl">
+            <CardContent className="p-6 flex justify-between items-center">
+              <div>
+                <p className="text-sm text-gray-600">Total Publishers</p>
+                <h3 className="text-2xl font-bold">{publishers.length}</h3>
+              </div>
+              <div className="p-3 bg-gradient-to-r from-[#819A91] to-[#A7C1A8] rounded-full">
+                <FileText className="h-6 w-6 text-white" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white/80 shadow-lg rounded-2xl">
+            <CardContent className="p-6 flex justify-between items-center">
+              <div>
+                <p className="text-sm text-gray-600">Categories</p>
+                <h3 className="text-2xl font-bold">{categories.length}</h3>
+              </div>
+              <div className="p-3 bg-gradient-to-r from-[#2C4A3B] to-[#819A91] rounded-full">
+                <Layers className="h-6 w-6 text-white" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* SEARCH + BUTTON */}
+        <Card className="col-span-2 bg-white/80 shadow-lg rounded-2xl mb-8">
+          <CardContent className="p-6 flex items-center gap-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Input
+                placeholder="Search product..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-10 rounded-full"
+              />
+            </div>
+            <Button
+              onClick={openAdd}
+              className="rounded-full bg-gradient-to-r from-[#2C4A3B] to-[#819A91] text-white px-6"
+            >
+              <Plus className="h-4 w-4 mr-1" /> New Product
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* LOADING */}
+        {loading ? (
+          <div className="bg-white/80 rounded-2xl shadow p-12 text-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-[#819A91] mx-auto"></div>
+            <p className="mt-4 text-lg">Loading products...</p>
+          </div>
+        ) : (
+          /* PRODUCT GRID */
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {filtered?.map((p: any) => (
+              <Card
+                key={p.id}
+                className="group bg-white/80 rounded-2xl shadow-lg hover:shadow-2xl transition"
+              >
+                <div className="relative h-48">
+                  {p.image ? (
+                    <img
+                      src={p.image}
+                      className="h-full w-full object-cover rounded-t-2xl group-hover:scale-110 transition"
+                    />
+                  ) : (
+                    <div className="h-full w-full bg-[#819A91] flex items-center justify-center">
+                      <ImageIcon className="h-16 w-16 text-white/70" />
+                    </div>
+                  )}
+
+                  <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 flex gap-2 transition">
+                    <Button
+                      size="sm"
+                      onClick={() => openEdit(p)}
+                      className="rounded-full text-gray-600 hover:text-white bg-white/90 shadow"
+                    >
+                      <Edit3 className="h-3 w-3" />
+                    </Button>
+
+                    <Button
+                      size="sm"
+                      onClick={() => deleteLocal(p.id)}
+                      className="rounded-full bg-red-500 text-white shadow"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+
+                <CardContent className="p-5">
+                  <h3 className="font-bold text-xl text-gray-800 mb-1">{p.name}</h3>
+
+                  <p className="text-gray-600 text-sm mb-3">
+                    Category: {p.category?.name}
+                  </p>
+
+                  <p className="text-gray-600 text-sm">Price: ৳{p.price}</p>
+
+                  <div className="flex gap-2 mt-4">
+                    <Button
+                      onClick={() => openEdit(p)}
+                      variant="outline"
+                      className="w-full bg-[#52aa8a] text-white hover:bg-[#2d6852]"
+                    >
+                      <Edit3 className="h-3 w-3 mr-1" /> Edit
+                    </Button>
+
+                    <Button
+                      onClick={() => deleteLocal(p.id)}
+                      variant="outline"
+                      className="border-red-500 text-red-500 hover:bg-red-500 hover:text-white"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {/* EMPTY STATE */}
+        {!loading && filtered?.length === 0 && (
+          <Card className="bg-white/80 shadow rounded-2xl p-12 text-center">
+            <h3 className="text-2xl font-bold">No products found</h3>
+            <p className="text-gray-600 mt-2 mb-6">
+              Try searching with a different keyword.
+            </p>
+            <Button
+              onClick={openAdd}
+              className="rounded-full bg-gradient-to-r from-[#2C4A3B] to-[#819A91] text-white px-6"
+            >
+              <Plus className="h-4 w-4 mr-1" /> Add Product
+            </Button>
+          </Card>
+        )}
+      </div>
+
+      {/* MODAL */}
+      {modalOpen && (
+        <ProductAddModal
+          open={modalOpen}
+          onClose={() => setModalOpen(false)}
+          editing={editing}
+          onSubmit={editing ? onUpdate : onCreate}
+          writers={writers}
+          publishers={publishers}
+          categories={categories}
+        />
+      )}
+    </div>
+  );
+}
