@@ -1,28 +1,54 @@
+// app/api/upload/route.ts
 import { NextResponse } from "next/server";
-import { writeFile } from "fs/promises";
 import path from "path";
+import fs from "fs/promises";
 
-export async function POST(req: Request) {
-  const formData = await req.formData();
-  const file = formData.get("file") as File;
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-  if (!file) {
-    return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
+const uploadsRoot = path.join(process.cwd(), "public", "upload");
+
+function guessContentType(ext: string) {
+  switch (ext) {
+    case ".jpg":
+    case ".jpeg":
+      return "image/jpeg";
+    case ".png":
+      return "image/png";
+    case ".webp":
+      return "image/webp";
+    case ".gif":
+      return "image/gif";
+    case ".avif":
+      return "image/avif";
+    case ".pdf":
+      return "application/pdf";
+    default:
+      return "application/octet-stream";
   }
+}
 
-  // Convert file to buffer
-  const bytes = await file.arrayBuffer();
-  const buffer = Buffer.from(bytes);
+export async function GET(_req: Request, ctx: { params: { slug: string[] } }) {
+  try {
+    const rel = ctx.params.slug.join("/");
 
-  // File name
-  const fileName = `${Date.now()}-${file.name}`;
-  const filePath = path.join(process.cwd(), "public/upload", fileName);
+    if (rel.includes("..")) {
+      return NextResponse.json({ error: "Bad path" }, { status: 400 });
+    }
 
-  // Save file
-  await writeFile(filePath, buffer);
+    const filePath = path.join(uploadsRoot, rel);
+    const data = await fs.readFile(filePath);
+    const ext = path.extname(filePath).toLowerCase();
 
-  // Public URL
-  const fileUrl = `/upload/${fileName}`;
-
-  return NextResponse.json({ url: fileUrl });
+    return new NextResponse(new Uint8Array(data), {
+      status: 200,
+      headers: {
+        "Content-Type": guessContentType(ext),
+        "Cache-Control": "public, max-age=31536000, immutable",
+      },
+    });
+  } catch (err) {
+    console.error(err);
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
 }

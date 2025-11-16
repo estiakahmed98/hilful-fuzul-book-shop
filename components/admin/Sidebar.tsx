@@ -64,7 +64,7 @@ const MenuItem = ({ item, pathname, onClose }: MenuItemProps) => {
   const defaultLinkClasses = "text-gray-200 hover:text-white hover:bg-[#1f5651]"; 
   
   // Active link colors: Emerald green background with a light gold border
-  const activeLinkClasses = "text-white bg-[#34D399] font-semibold border-l-4 border-[#D8699E]"; 
+  const activeLinkClasses = "text-white bg-[#34D399] font-semibold border-l-4 border-[#34D399]"; 
   
   // Dropdown button colors
   const buttonActiveClasses = "text-white bg-[#1f5651] font-semibold";
@@ -105,7 +105,7 @@ const MenuItem = ({ item, pathname, onClose }: MenuItemProps) => {
                     className={cn(
                       "block pl-7 pr-3 py-2 text-xs transition duration-150 ease-in-out rounded-r",
                       isSubItemActive
-                        ? "text-[#D8699E] font-medium" // Sub-item active color: Gold
+                        ? "text-[#34D399] font-medium" // Sub-item active color: Gold
                         : "text-gray-400 hover:text-white hover:bg-[#15534c]" // Sub-item hover
                     )}
                   >
@@ -146,7 +146,7 @@ export default function Sidebar({ isMobile = false, onClose }: { isMobile?: bool
   const pathname = usePathname();
 
   const themeBg = "bg-[#10403C]"; // Deep Forest/Emerald Green
-  const themeAccent = "text-[#D8699E]"; // Light Gold/Amber
+  const themeAccent = "text-[#34D399]"; // Light Gold/Amber
 
   if (isMobile) {
     return (

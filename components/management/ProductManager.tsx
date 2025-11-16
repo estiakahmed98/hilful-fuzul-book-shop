@@ -6,6 +6,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Plus,
   Edit3,
   Trash2,
@@ -30,6 +40,9 @@ export default function ProductManager({
 }: any) {
   const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deletingProduct, setDeletingProduct] = useState<any>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [editing, setEditing] = useState(null);
 
   const filtered = products?.filter((p: any) =>
@@ -46,16 +59,106 @@ export default function ProductManager({
     setModalOpen(true);
   };
 
-  const deleteLocal = (id: number) => {
-    if (confirm("Are you sure you want to delete this product?")) {
-      onDelete(id);
-      toast.success("Product deleted");
+  const openDeleteModal = (product: any) => {
+    setDeletingProduct(product);
+    setDeleteModalOpen(true);
+  };
+
+  const closeDeleteModal = () => {
+    setDeleteModalOpen(false);
+    setDeletingProduct(null);
+  };
+
+  const handleDelete = async () => {
+    if (!deletingProduct) return;
+    
+    try {
+      setIsDeleting(true);
+      // Delete associated files first
+      await deleteProductFiles(deletingProduct);
+      // Then delete the product
+      await onDelete(deletingProduct.id);
+      toast.success("Product and all associated files deleted successfully");
+    } catch (error) {
+      console.error('Error deleting product:', error);
+      toast.error("Failed to delete product");
+    } finally {
+      setIsDeleting(false);
+      closeDeleteModal();
+    }
+  };
+
+  const deleteProductFiles = async (product: any) => {
+    try {
+      const filesToDelete = [];
+      
+      // Add main image
+      if (product.image) {
+        filesToDelete.push(extractRelativePath(product.image));
+      }
+      
+      // Add gallery images
+      if (product.gallery && product.gallery.length > 0) {
+        product.gallery.forEach((img: string) => {
+          filesToDelete.push(extractRelativePath(img));
+        });
+      }
+      
+      // Add PDF if exists
+      if (product.pdf) {
+        filesToDelete.push(extractRelativePath(product.pdf));
+      }
+
+      // Delete all files in parallel
+      await Promise.all(
+        filesToDelete.map(filePath => 
+          fetch(`/api/delete-file?path=${encodeURIComponent(filePath)}`, {
+            method: 'DELETE'
+          })
+        )
+      );
+    } catch (error) {
+      console.error('Error deleting product files:', error);
+      // Continue with product deletion even if file deletion fails
+    }
+  };
+
+  const extractRelativePath = (url: string): string => {
+    try {
+      const urlObj = new URL(url);
+      return urlObj.pathname; // Returns path like "/upload/products/filename.jpg"
+    } catch (e) {
+      // If it's not a full URL, return as is (might be a relative path already)
+      return url.startsWith('/') ? url : `/${url}`;
     }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#EEEFE0] to-[#D1D8BE]/30 p-6">
       <div>
+        {/* Delete Confirmation Modal */}
+        <AlertDialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently delete the product "{deletingProduct?.name}" and all its associated files (images, PDFs, etc.).
+                This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                {isDeleting ? 'Deleting...' : 'Delete Permanently'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
         {/* HEADER */}
         <div className="text-center mb-12">
           <div className="flex items-center justify-center gap-3 mb-4">
@@ -178,11 +281,13 @@ export default function ProductManager({
                     </Button>
 
                     <Button
-                      size="sm"
-                      onClick={() => deleteLocal(p.id)}
-                      className="rounded-full bg-red-500 text-white shadow"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => openDeleteModal(p)}
+                      className="text-red-500 hover:bg-red-50"
+                      disabled={isDeleting}
                     >
-                      <Trash2 className="h-3 w-3" />
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
@@ -191,7 +296,7 @@ export default function ProductManager({
                   <h3 className="font-bold text-xl text-gray-800 mb-1">{p.name}</h3>
 
                   <p className="text-gray-600 text-sm mb-3">
-                    Category: {p.category?.name}
+                    Category: {p.category?.name || 'No category'}
                   </p>
 
                   <p className="text-gray-600 text-sm">Price: ৳{p.price}</p>
@@ -200,13 +305,13 @@ export default function ProductManager({
                     <Button
                       onClick={() => openEdit(p)}
                       variant="outline"
-                      className="w-full bg-[#52aa8a] text-white hover:bg-[#2d6852]"
+                      className="w-full bg-[#52aa8a] text-white hover:text-white hover:bg-[#2d6852]"
                     >
                       <Edit3 className="h-3 w-3 mr-1" /> Edit
                     </Button>
 
                     <Button
-                      onClick={() => deleteLocal(p.id)}
+                      onClick={() => openDeleteModal(p)}
                       variant="outline"
                       className="border-red-500 text-red-500 hover:bg-red-500 hover:text-white"
                     >
