@@ -197,7 +197,7 @@ export default function WritersManager({
                     <Button
                       size="sm"
                       onClick={() => openEditModal(writer)}
-                      className="rounded-full bg-white/90 shadow"
+                      className="rounded-full text-gray-600 hover:text-white bg-white/90 shadow"
                     >
                       <Edit3 className="h-3 w-3" />
                     </Button>
@@ -228,14 +228,14 @@ export default function WritersManager({
                     <Button
                       onClick={() => openEditModal(writer)}
                       variant="outline"
-                      className="w-full border-[#819A91] text-[#819A91]"
+                      className="w-full bg-[#52aa8a] text-white hover:bg-[#2d6852] hover:text-white"
                     >
                       <Edit3 className="h-3 w-3 mr-1" /> এডিট
                     </Button>
                     <Button
                       onClick={() => handleDeleteLocal(writer.id)}
                       variant="outline"
-                      className="border-red-500 text-red-500"
+                      className="border-red-500 text-red-500 hover:bg-red-500 hover:text-white"
                     >
                       <Trash2 className="h-3 w-3" />
                     </Button>
