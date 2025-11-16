@@ -80,7 +80,7 @@ model Product {
   available      Boolean  @default(true)
 
   image   String?
-  gallery String[] // multiple images
+  gallery String[]
   pdf     String?
 
   soldCount   Int   @default(0)
