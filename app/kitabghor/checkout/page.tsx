@@ -29,6 +29,10 @@ export default function CheckoutPage() {
   const { data: session } = useSession();
   const [prefilled, setPrefilled] = useState(false);
 
+  // 🔹 New state for payment screenshot (only added, nothing existing changed)
+  const [paymentScreenshot, setPaymentScreenshot] = useState<File | null>(null);
+  const [paymentScreenshotPreview, setPaymentScreenshotPreview] = useState<string | null>(null);
+
   useEffect(() => {
     setIsMounted(true);
   }, []);
@@ -59,6 +63,17 @@ export default function CheckoutPage() {
     };
     loadUser();
   }, [session, prefilled]);
+
+  // 🔹 New handler for screenshot upload (only added)
+  const handleScreenshotChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setPaymentScreenshot(file);
+
+    const previewUrl = URL.createObjectURL(file);
+    setPaymentScreenshotPreview(previewUrl);
+  };
 
   const subtotal = cartItems.reduce(
     (total, item) => total + item.price * item.quantity,
@@ -136,6 +151,8 @@ export default function CheckoutPage() {
       transactionId: paymentMethod !== "CashOnDelivery" ? transactionId : null,
       total,
       createdAt: new Date().toISOString(),
+      // 🔹 Optional: you can later extend this to send screenshot info
+      // paymentScreenshot: paymentScreenshot ? paymentScreenshot.name : null,
     };
 
     setPlacedOrder(orderData);
@@ -335,6 +352,33 @@ export default function CheckoutPage() {
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTransactionId(e.target.value)}
                         className="bg-white border-[#D1D8BE] focus:border-[#819A91] text-[#2D4A3C] placeholder-[#2D4A3C]/50"
                       />
+
+                      {/* 🔹 Screenshot upload box (added without changing existing code) */}
+                      <div className="mt-4 space-y-2">
+                        <label className="text-sm font-medium text-[#2D4A3C]">
+                          পেমেন্ট স্ক্রিনশট
+                        </label>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleScreenshotChange}
+                          className="w-full text-sm text-[#2D4A3C] file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-[#819A91] file:text-white hover:file:bg-[#819A91]/90 cursor-pointer"
+                        />
+
+                        {paymentScreenshotPreview && (
+                          <div className="mt-3">
+                            <p className="text-xs text-[#2D4A3C]/70 mb-2">প্রিভিউ:</p>
+                            <div className="relative w-40 h-40 border border-[#D1D8BE] rounded-xl overflow-hidden bg-white">
+                              <Image
+                                src={paymentScreenshotPreview}
+                                alt="Payment screenshot preview"
+                                fill
+                                className="object-cover"
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
 
@@ -401,6 +445,23 @@ export default function CheckoutPage() {
                       </div>
                     </div>
                   </div>
+
+                  {/* 🔹 New: show payment screenshot on confirmation step as well */}
+                  {paymentScreenshotPreview && (
+                    <div className="mt-4">
+                      <h4 className="font-semibold text-[#2D4A3C] mb-2">
+                        পেমেন্ট স্ক্রিনশট
+                      </h4>
+                      <div className="relative w-40 h-40 border border-[#D1D8BE] rounded-xl overflow-hidden bg-white">
+                        <Image
+                          src={paymentScreenshotPreview}
+                          alt="Payment screenshot preview"
+                          fill
+                          className="object-cover"
+                        />
+                      </div>
+                    </div>
+                  )}
 
                   <Button
                     className="w-full bg-[#A7C1A8] hover:bg-[#A7C1A8]/90 text-white py-3 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5 mt-6"
