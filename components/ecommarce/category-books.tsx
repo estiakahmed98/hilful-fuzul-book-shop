@@ -44,13 +44,72 @@ export default function CategoryBooks({ category }: { category: Category }) {
 
   const displayBooks = categoryBooks.slice(0, 8);
 
-  const toggleWishlist = (productId: string | number) => {
-    if (isInWishlist(productId)) {
-      removeFromWishlist(productId);
-      toast.success("উইশলিস্ট থেকে সরানো হয়েছে");
-    } else {
-      addToWishlist(productId);
-      toast.success("উইশলিস্টে যোগ করা হয়েছে");
+  // 🔹 Wishlist toggle (with API)
+  const toggleWishlist = async (product: Product) => {
+    try {
+      if (!session?.user) {
+        toast.error("উইশলিস্ট ব্যবহার করতে আগে লগইন করুন");
+        return;
+      }
+
+      const numericId = Number(product.id);
+      if (!numericId || Number.isNaN(numericId)) {
+        console.error("Invalid product id for wishlist:", product.id);
+        toast.error("পণ্যের তথ্য সঠিক নয়");
+        return;
+      }
+
+      const alreadyInWishlist = isInWishlist(product.id);
+
+      if (alreadyInWishlist) {
+        // ✅ Remove from wishlist (DELETE)
+        const res = await fetch(`/api/wishlist?productId=${numericId}`, {
+          method: "DELETE",
+        });
+
+        if (res.status === 401) {
+          toast.error("উইশলিস্ট থেকে সরাতে আগে লগইন করুন");
+          return;
+        }
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => null);
+          console.error("Remove from wishlist failed:", data || res.statusText);
+          toast.error("উইশলিস্ট থেকে সরানো যায়নি");
+          return;
+        }
+
+        removeFromWishlist(product.id);
+        toast.success("উইশলিস্ট থেকে সরানো হয়েছে");
+      } else {
+        // ✅ Add to wishlist (POST)
+        const res = await fetch("/api/wishlist", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ productId: numericId }),
+        });
+
+        if (res.status === 401) {
+          toast.error("উইশলিস্টে যোগ করতে আগে লগইন করুন");
+          return;
+        }
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => null);
+          console.error("Add to wishlist failed:", data || res.statusText);
+          toast.error("উইশলিস্টে যোগ করা যায়নি");
+          return;
+        }
+
+        // const item = await res.json(); // চাইলে data ব্যবহার করতে পারিস
+        addToWishlist(product.id);
+        toast.success("উইশলিস্টে যোগ করা হয়েছে");
+      }
+    } catch (error) {
+      console.error("Error toggling wishlist:", error);
+      toast.error("উইশলিস্ট হালনাগাদ করতে সমস্যা হয়েছে");
     }
   };
 
@@ -167,7 +226,7 @@ export default function CategoryBooks({ category }: { category: Category }) {
               <button
                 onClick={(e) => {
                   e.preventDefault();
-                  toggleWishlist(book.id);
+                  void toggleWishlist(book);
                 }}
                 className={`absolute top-3 right-3 z-10 p-2 rounded-full backdrop-blur-sm transition-all duration-300 ${
                   isWishlisted
