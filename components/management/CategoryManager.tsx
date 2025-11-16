@@ -92,7 +92,7 @@ export default function CategoryManager({
       </div>
 
       {/* Top Bar */}
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex justify-between gap-3 items-center mb-8">
         <div className="relative w-64">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
           <Input
@@ -129,7 +129,7 @@ export default function CategoryManager({
 
               <CardContent className="p-5">
                 <h3 className="text-xl font-semibold">{cat.name}</h3>
-                <p className="text-gray-500 text-sm mb-4">ID: {cat.id}</p>
+                <p className="text-gray-500 text-sm mb-4">Total Products: {(cat.products || []).length}</p>
 
                 <div className="flex gap-2">
                   <Button
@@ -169,41 +169,6 @@ export default function CategoryManager({
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                 />
-              </div>
-
-              <div>
-                <Label>ছবি আপলোড করুন</Label>
-
-                <Input
-                  type="file"
-                  accept="image/*"
-                  onChange={async (e: any) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-
-                    const formData = new FormData();
-                    formData.append("file", file);
-
-                    toast.loading("Uploading...", { id: "upload" });
-
-                    const res = await fetch("/api/upload", {
-                      method: "POST",
-                      body: formData,
-                    });
-
-                    const data = await res.json();
-                    setForm({ ...form, image: data.url });
-
-                    toast.success("Upload Complete!", { id: "upload" });
-                  }}
-                />
-
-                {form.image && (
-                  <img
-                    src={form.image}
-                    className="mt-3 w-24 h-24 object-cover rounded-md border"
-                  />
-                )}
               </div>
             </div>
 

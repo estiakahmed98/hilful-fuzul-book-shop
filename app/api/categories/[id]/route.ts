@@ -10,7 +10,6 @@ export async function PUT(req: Request, { params }: any) {
       where: { id },
       data: {
         name: body.name,
-        image: body.image ?? null,
       },
     });
 

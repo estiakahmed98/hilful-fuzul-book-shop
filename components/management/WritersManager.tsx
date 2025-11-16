@@ -32,7 +32,6 @@ export default function WritersManager({
 
   const [form, setForm] = useState({
     name: "",
-    books_count: "",
     image: "",
   });
 
@@ -42,7 +41,7 @@ export default function WritersManager({
 
   const openAddModal = () => {
     setEditing(null);
-    setForm({ name: "", books_count: "", image: "" });
+    setForm({ name: "", image: "" });
     setModalOpen(true);
   };
 
@@ -50,7 +49,6 @@ export default function WritersManager({
     setEditing(writer);
     setForm({
       name: writer.name,
-      books_count: writer.books_count.toString(),
       image: writer.image || "",
     });
     setModalOpen(true);
@@ -68,21 +66,19 @@ export default function WritersManager({
       if (editing) {
         await onUpdate(editing.id, {
           name: form.name,
-          books_count: Number(form.books_count),
           image: form.image,
         });
         toast.success("লেখক সফলভাবে আপডেট করা হয়েছে");
       } else {
         await onCreate({
           name: form.name,
-          books_count: Number(form.books_count),
           image: form.image,
         });
         toast.success("নতুন লেখক সফলভাবে যোগ করা হয়েছে");
       }
 
       setModalOpen(false);
-      setForm({ name: "", books_count: "", image: "" });
+      setForm({ name: "", image: "" });
     } catch {
       toast.error("কিছু একটা সমস্যা হয়েছে");
     } finally {
@@ -212,11 +208,6 @@ export default function WritersManager({
                 </div>
 
                 <CardContent className="p-5">
-                  <div className="flex items-center mb-2">
-                    <span className="text-sm text-gray-600">
-                      Books: {writer.books_count || 0}
-                    </span>
-                  </div>
 
                   <h3 className="font-bold text-xl text-gray-800 mb-2">
                     {writer.name}

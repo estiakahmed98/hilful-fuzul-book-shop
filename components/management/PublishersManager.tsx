@@ -1,0 +1,258 @@
+"use client";
+
+import { useState } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Plus,
+  Edit3,
+  Trash2,
+  BookOpen,
+  Users,
+  Search,
+  Zap,
+} from "lucide-react";
+import { toast } from "sonner";
+
+export default function PublishersManager({
+  publishers,
+  loading,
+  onCreate,
+  onUpdate,
+  onDelete,
+}: any) {
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState<any>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const [form, setForm] = useState({
+    name: "",
+    image: "",
+  });
+
+  const filtered = publishers?.filter((pub: any) =>
+    pub.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const openAdd = () => {
+    setEditing(null);
+    setForm({ name: "", image: "" });
+    setModalOpen(true);
+  };
+
+  const openEdit = (pub: any) => {
+    setEditing(pub);
+    setForm({
+      name: pub.name,
+      image: pub.image || "",
+    });
+    setModalOpen(true);
+  };
+
+  const handleSubmit = async () => {
+    if (!form.name.trim()) {
+      toast.error("নাম দিন");
+      return;
+    }
+    setSubmitting(true);
+
+    try {
+      if (editing) {
+        await onUpdate(editing.id, {
+          name: form.name,
+          image: form.image,
+        });
+        toast.success("আপডেট সম্পন্ন");
+      } else {
+        await onCreate({
+          name: form.name,
+          image: form.image,
+        });
+        toast.success("নতুন প্রকাশক যোগ হয়েছে");
+      }
+      setModalOpen(false);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteLocal = (id: number) => {
+    if (confirm("মুছে ফেলবেন?")) {
+      onDelete(id);
+      toast.success("ডিলিট করা হয়েছে");
+    }
+  };
+
+  return (
+    <div className="min-h-screen p-6 bg-gradient-to-br from-[#EEEFE0] to-[#D1D8BE]/30">
+      {/* Header */}
+      <div className="text-center mb-12">
+        <h1 className="text-4xl font-bold bg-gradient-to-r from-[#2C4A3B] to-[#819A91] bg-clip-text text-transparent">
+          প্রকাশক ব্যবস্থাপনা
+        </h1>
+        <p className="text-gray-600 mt-2">
+          প্রকাশকদের তালিকা দেখুন, যোগ করুন ও ম্যানেজ করুন
+        </p>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+        <Card className="bg-white/80 shadow rounded-2xl">
+          <CardContent className="p-6 flex justify-between">
+            <div>
+              <p className="text-gray-600 text-sm">মোট প্রকাশক</p>
+              <h2 className="text-2xl font-bold">{publishers.length}</h2>
+            </div>
+            <Users className="h-10 w-10 text-[#2C4A3B]" />
+          </CardContent>
+        </Card>
+
+        <Card className="bg-white/80 shadow rounded-2xl">
+          <CardContent className="p-6 flex justify-between">
+            <div>
+              <p className="text-gray-600 text-sm">মোট বই সংখ্যা</p>
+              <h2 className="text-2xl font-bold">
+                {publishers.reduce((a: number, p: any) => a + (p.products?.length || 0),  0)}
+              </h2>
+            </div>
+            <BookOpen className="h-10 w-10 text-[#2C4A3B]" />
+          </CardContent>
+        </Card>
+
+        <Card className="bg-white/80 shadow rounded-2xl">
+          <CardContent className="p-6 flex flex-row gap-4 items-center">
+            <div className="relative w-full">
+              <Search className="absolute left-3 top-3 text-gray-400" />
+              <Input
+                placeholder="অনুসন্ধান করুন..."
+                className="pl-10"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+
+            <Button onClick={openAdd} className="bg-[#2C4A3B] text-white px-5">
+              <Plus className="h-4 w-4 mr-1" /> নতুন
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Publishers Grid */}
+      {loading ? (
+        <p className="text-center text-lg mt-20">লোড হচ্ছে...</p>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-4 gap-6">
+          {filtered.map((pub: any) => (
+            <Card key={pub.id} className="rounded-2xl shadow bg-white">
+              <div className="h-48 bg-gray-100 rounded-t-2xl overflow-hidden flex items-center justify-center">
+                {pub.image ? (
+                  <img src={pub.image} className="w-full h-full object-cover" />
+                ) : (
+                  <Users className="h-16 w-16 text-gray-400" />
+                )}
+              </div>
+
+              <CardContent className="p-5">
+                <h3 className="text-xl font-bold">{pub.name}</h3>
+                <p className="text-gray-600 mt-1">Total Books: {(pub.products || []).length}</p>
+
+                <div className="flex gap-3 mt-4">
+                  <Button
+                    onClick={() => openEdit(pub)}
+                    className="bg-[#2C4A3B] text-white w-full"
+                  >
+                    <Edit3 className="h-3 w-3 mr-1" /> এডিট
+                  </Button>
+
+                  <Button
+                    onClick={() => handleDeleteLocal(pub.id)}
+                    variant="outline"
+                    className="border-red-500 text-red-500"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Modal */}
+      {modalOpen && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
+            <div className="p-6 border-b">
+              <h2 className="text-2xl font-bold">
+                {editing ? "প্রকাশক আপডেট" : "নতুন প্রকাশক"}
+              </h2>
+            </div>
+
+            <div className="p-6 space-y-5">
+              <div>
+                <Label>প্রকাশকের নাম *</Label>
+                <Input
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label>ছবি আপলোড করুন</Label>
+
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onChange={async (e: any) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+
+                    const fd = new FormData();
+                    fd.append("file", file);
+
+                    toast.loading("Uploading...", { id: "upload" });
+
+                    const res = await fetch("/api/upload", {
+                      method: "POST",
+                      body: fd,
+                    });
+
+                    const data = await res.json();
+
+                    setForm({ ...form, image: data.url });
+
+                    toast.success("Upload complete!", { id: "upload" });
+                  }}
+                />
+
+                {form.image && (
+                  <img
+                    src={form.image}
+                    className="w-20 h-20 mt-3 rounded-lg border object-cover"
+                  />
+                )}
+              </div>
+            </div>
+
+            <div className="p-6 border-t flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setModalOpen(false)}>
+                বাতিল
+              </Button>
+              <Button
+                onClick={handleSubmit}
+                disabled={submitting || !form.name}
+                className="bg-[#2C4A3B] text-white"
+              >
+                <Zap className="h-4 w-4 mr-1" />
+                {editing ? "আপডেট" : "তৈরি করুন"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
