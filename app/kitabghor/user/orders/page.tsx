@@ -1,10 +1,9 @@
 // app/kitabghor/user/orders/page.tsx
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
-import ordersData from "@/data/orders.json";
 
 interface CartItem {
   id: number | string;
@@ -25,18 +24,16 @@ interface Customer {
 }
 
 interface Order {
-  invoiceId: string;
+  invoiceId: string; // API থেকে order.id string করে রাখছি
   customer: Customer;
   cartItems?: CartItem[] | null;
   paymentMethod: string;
   transactionId: string | null;
   total: number;
   createdAt: string;
+  status: string;         // 🔹 OrderStatus (PENDING, CONFIRMED, SHIPPED, DELIVERED, ...)
+  paymentStatus: string;  // 🔹 PaymentStatus (UNPAID, PAID)
 }
-
-const orders: Order[] = Array.isArray(ordersData)
-  ? (ordersData as Order[])
-  : [];
 
 const formatDateTime = (iso: string) => {
   const d = new Date(iso);
@@ -44,9 +41,147 @@ const formatDateTime = (iso: string) => {
   return d.toLocaleString();
 };
 
+// 🔹 Order status badge helper
+const getOrderStatusConfig = (status: string) => {
+  const s = status?.toUpperCase();
+  if (s === "DELIVERED") {
+    return {
+      label: "Delivered",
+      className:
+        "bg-emerald-100 text-emerald-800 border border-emerald-200",
+    };
+  }
+  if (s === "SHIPPED" || s === "PROCESSING" || s === "CONFIRMED") {
+    return {
+      label:
+        s === "SHIPPED"
+          ? "Shipped"
+          : s === "PROCESSING"
+          ? "Processing"
+          : "Confirmed",
+      className: "bg-blue-100 text-blue-800 border border-blue-200",
+    };
+  }
+  if (s === "CANCELLED") {
+    return {
+      label: "Cancelled",
+      className: "bg-red-100 text-red-800 border border-red-200",
+    };
+  }
+  // default PENDING / unknown
+  return {
+    label: "Pending",
+    className: "bg-amber-100 text-amber-800 border border-amber-200",
+  };
+};
+
+// 🔹 Payment status badge helper
+const getPaymentStatusConfig = (paymentStatus: string) => {
+  const s = paymentStatus?.toUpperCase();
+  if (s === "PAID") {
+    return {
+      label: "Paid",
+      className:
+        "bg-emerald-50 text-emerald-700 border border-emerald-200",
+    };
+  }
+  // default UNPAID / unknown
+  return {
+    label: "Unpaid",
+    className: "bg-rose-50 text-rose-700 border border-rose-200",
+  };
+};
+
 export default function OrdersPage() {
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // 🔹 API থেকে অর্ডার লোড
+  useEffect(() => {
+    const fetchOrders = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const res = await fetch("/api/orders?limit=50", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          cache: "no-store",
+        });
+
+        if (res.status === 401) {
+          setError("অর্ডার দেখতে আপনাকে আগে লগইন করতে হবে।");
+          setOrders([]);
+          return;
+        }
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => null);
+          console.error("Failed to fetch orders:", data || res.statusText);
+          setError("অর্ডার লোড করতে সমস্যা হয়েছে।");
+          setOrders([]);
+          return;
+        }
+
+        const data = await res.json();
+
+        // data.orders → আমাদের UI-র ফরম্যাটে ম্যাপ করে নিচ্ছি
+        const mapped: Order[] = Array.isArray(data.orders)
+          ? data.orders.map((o: any) => {
+              const items: CartItem[] = Array.isArray(o.orderItems)
+                ? o.orderItems.map((oi: any) => ({
+                    id: oi.id,
+                    productId: oi.productId,
+                    name: oi.product?.name ?? "Unknown product",
+                    price: Number(oi.price ?? 0),
+                    quantity: oi.quantity ?? 1,
+                    image: oi.product?.image ?? "",
+                  }))
+                : [];
+
+              return {
+                invoiceId: String(o.id),
+                customer: {
+                  name: o.name,
+                  mobile: o.phone_number,
+                  email: o.email ?? "",
+                  address: o.address_details ?? "",
+                  location: `${o.area || ""}, ${o.district || ""}, ${
+                    o.country || ""
+                  }`
+                    .replace(/^[,\s]+|[,\s]+$/g, "")
+                    .replace(/,\s*,/g, ","),
+                  deliveryAddress: o.address_details ?? "",
+                },
+                cartItems: items,
+                paymentMethod: o.payment_method,
+                transactionId: o.transactionId ?? null,
+                total: Number(o.grand_total ?? o.total ?? 0),
+                createdAt: o.createdAt ?? o.order_date,
+                status: o.status ?? "PENDING",               // 🔹 নতুন
+                paymentStatus: o.paymentStatus ?? "UNPAID",  // 🔹 নতুন
+              };
+            })
+          : [];
+
+        setOrders(mapped);
+      } catch (err) {
+        console.error("Error fetching orders:", err);
+        setError("অর্ডার লোড করতে সমস্যা হয়েছে।");
+        setOrders([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOrders();
+  }, []);
+
   const totalOrders = orders.length;
-  const orderedList = useMemo(() => orders, []);
+  const orderedList = useMemo(() => orders, [orders]);
 
   return (
     <>
@@ -67,15 +202,28 @@ export default function OrdersPage() {
         </div>
       </Card>
 
-      {/* Orders list */}
-      {orderedList.length === 0 ? (
+      {/* Loading / Error / Empty / List */}
+      {loading ? (
+        <Card className="mt-4 p-6 text-center text-sm text-gray-600">
+          অর্ডার লোড হচ্ছে...
+        </Card>
+      ) : error ? (
+        <Card className="mt-4 p-6 text-center text-sm text-red-600">
+          {error}
+        </Card>
+      ) : orderedList.length === 0 ? (
         <Card className="mt-4 p-6 text-center text-sm text-gray-600">
           You don&apos;t have any orders yet.
         </Card>
       ) : (
         <div className="mt-4 space-y-4">
           {orderedList.map((order) => {
-            const items = Array.isArray(order.cartItems) ? order.cartItems : [];
+            const items = Array.isArray(order.cartItems)
+              ? order.cartItems
+              : [];
+
+            const statusCfg = getOrderStatusConfig(order.status);
+            const paymentCfg = getPaymentStatusConfig(order.paymentStatus);
 
             return (
               <Card
@@ -106,20 +254,31 @@ export default function OrdersPage() {
                     </p>
                   </div>
 
-                  <div className="flex flex-col items-start md:items-end gap-1 text-sm">
-                    <span className="inline-flex items-center px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-semibold">
-                      Completed
+                  <div className="flex flex-col items-start md:items-end gap-2 text-sm">
+                    {/* 🔹 Dynamic order status badge */}
+                    <span
+                      className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${statusCfg.className}`}
+                    >
+                      {statusCfg.label}
                     </span>
+
+                    {/* 🔹 Payment status badge */}
+                    <span
+                      className={`inline-flex items-center px-3 py-1 rounded-full text-[11px] font-medium ${paymentCfg.className}`}
+                    >
+                      Payment: {paymentCfg.label}
+                    </span>
+
                     <Link
                       href={`/kitabghor/user/orders/${order.invoiceId}`}
-                      className="bg-[#0C7CD5] hover:bg-[#0662AA] text-white text-xs font-semibold rounded-sm px-3 py-1 transition-colors inline-flex items-center"
+                      className="mt-1 bg-[#0C7CD5] hover:bg-[#0662AA] text-white text-xs font-semibold rounded-sm px-3 py-1 transition-colors inline-flex items-center"
                     >
                       Track My Order →
                     </Link>
                   </div>
                 </div>
 
-                {/* Items ( ছোট summery ) */}
+                {/* Items ( ছোট summary ) */}
                 <div className="border-t border-gray-200 pt-4">
                   {items.map((item) => (
                     <div

@@ -7,6 +7,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+
 model User {
   id            String    @id @default(cuid())
   email         String    @unique
@@ -123,6 +124,7 @@ model Order {
   district         String
   area             String
   address_details  String
+  image            String?
 
   payment_method String
   order_date     DateTime @default(now())
@@ -138,6 +140,7 @@ model Order {
   orderItems OrderItem[]
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
+  shipment   Shipment?   
 }
 
 model OrderItem {
@@ -196,6 +199,29 @@ model Blog {
   date      DateTime
   author    String
   image     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+enum ShipmentStatus {
+  PENDING
+  IN_TRANSIT
+  OUT_FOR_DELIVERY
+  DELIVERED
+  RETURNED
+  CANCELLED
+}
+model Shipment {
+  id             Int             @id @default(autoincrement())
+  orderId        Int             @unique
+  courier        String
+  trackingNumber String?
+  status         ShipmentStatus  @default(PENDING)
+  shippedAt      DateTime?
+  expectedDate   DateTime?
+  deliveredAt    DateTime?
+
+  order Order @relation(fields: [orderId], references: [id])
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

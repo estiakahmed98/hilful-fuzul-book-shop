@@ -1,0 +1,136 @@
+// app/api/shipments/[id]/route.ts
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { ShipmentStatus } from "@prisma/client";
+
+interface RouteParams {
+  params: { id: string };
+}
+
+// GET /api/shipments/:id
+export async function GET(_req: NextRequest, { params }: RouteParams) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const userId = (session.user as any).id as string;
+    const role = (session.user as any).role as string | undefined;
+    const id = Number(params.id);
+
+    if (Number.isNaN(id)) {
+      return NextResponse.json(
+        { error: "Invalid shipment id" },
+        { status: 400 }
+      );
+    }
+
+    const shipment = await prisma.shipment.findUnique({
+      where: { id },
+      include: {
+        order: true,
+      },
+    });
+
+    if (!shipment) {
+      return NextResponse.json(
+        { error: "Shipment not found" },
+        { status: 404 }
+      );
+    }
+
+    // normal user হলে: কেবল নিজের order এর shipment দেখতে পারবে
+    if (role !== "admin" && shipment.order.userId !== userId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    return NextResponse.json(shipment);
+  } catch (error) {
+    console.error("Error fetching shipment:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
+
+// PATCH /api/shipments/:id
+// Body (সব optional, যা পাঠাবে তাই update হবে):
+// {
+//   courier?: string,
+//   trackingNumber?: string | null,
+//   status?: ShipmentStatus,
+//   shippedAt?: string | null,
+//   expectedDate?: string | null,
+//   deliveredAt?: string | null
+// }
+export async function PATCH(request: NextRequest, { params }: RouteParams) {
+  try {
+    const session = await getServerSession(authOptions);
+    const role = (session?.user as any)?.role as string | undefined;
+
+    // shipment update -> শুধু admin
+    if (!session?.user || role !== "admin") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const id = Number(params.id);
+    if (Number.isNaN(id)) {
+      return NextResponse.json(
+        { error: "Invalid shipment id" },
+        { status: 400 }
+      );
+    }
+
+    const body = await request.json();
+    const {
+      courier,
+      trackingNumber,
+      status,
+      shippedAt,
+      expectedDate,
+      deliveredAt,
+    } = body;
+
+    const data: any = {};
+
+    if (courier !== undefined) data.courier = courier;
+    if (trackingNumber !== undefined) data.trackingNumber = trackingNumber;
+
+    if (status !== undefined) {
+      if (!Object.values(ShipmentStatus).includes(status as ShipmentStatus)) {
+        return NextResponse.json(
+          { error: "Invalid shipment status" },
+          { status: 400 }
+        );
+      }
+      data.status = status as ShipmentStatus;
+    }
+
+    if (shippedAt !== undefined) {
+      data.shippedAt = shippedAt ? new Date(shippedAt) : null;
+    }
+    if (expectedDate !== undefined) {
+      data.expectedDate = expectedDate ? new Date(expectedDate) : null;
+    }
+    if (deliveredAt !== undefined) {
+      data.deliveredAt = deliveredAt ? new Date(deliveredAt) : null;
+    }
+
+    const updated = await prisma.shipment.update({
+      where: { id },
+      data,
+    });
+
+    return NextResponse.json(updated);
+  } catch (error) {
+    console.error("Error updating shipment:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
