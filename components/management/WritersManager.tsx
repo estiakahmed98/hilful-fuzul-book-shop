@@ -293,7 +293,7 @@ export default function WritersManager({
 
                       const data = await res.json();
 
-                      setForm({ ...form, image: data.url });
+                      setForm({ ...form, image: data.fileUrl });
 
                       toast.success("ছবি আপলোড সম্পন্ন!", { id: "upload" });
                     } catch (err) {

@@ -24,6 +24,8 @@ export default function PublishersManager({
   onDelete,
 }: any) {
   const [modalOpen, setModalOpen] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   const [editing, setEditing] = useState<any>(null);
   const [submitting, setSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -80,9 +82,16 @@ export default function PublishersManager({
   };
 
   const handleDeleteLocal = (id: number) => {
-    if (confirm("মুছে ফেলবেন?")) {
-      onDelete(id);
+    setDeletingId(id);
+    setDeleteModalOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (deletingId) {
+      onDelete(deletingId);
       toast.success("ডিলিট করা হয়েছে");
+      setDeleteModalOpen(false);
+      setDeletingId(null);
     }
   };
 
@@ -178,9 +187,12 @@ export default function PublishersManager({
                   </Button>
 
                   <Button
-                    onClick={() => handleDeleteLocal(pub.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteLocal(pub.id);
+                    }}
                     variant="outline"
-                    className="border-red-500 text-red-500"
+                    className="border-red-500 text-red-500 hover:bg-red-50"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -231,7 +243,7 @@ export default function PublishersManager({
 
                     const data = await res.json();
 
-                    setForm({ ...form, image: data.url });
+                    setForm({ ...form, image: data.fileUrl });
 
                     toast.success("Upload complete!", { id: "upload" });
                   }}
@@ -258,6 +270,35 @@ export default function PublishersManager({
                 <Zap className="h-4 w-4 mr-1" />
                 {editing ? "আপডেট" : "তৈরি করুন"}
               </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteModalOpen && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+            <div className="text-center">
+              <Trash2 className="h-12 w-12 text-red-500 mx-auto mb-4" />
+              <h3 className="text-xl font-bold mb-2">মুছে ফেলুন</h3>
+              <p className="text-gray-600 mb-6">আপনি কি নিশ্চিত যে আপনি এই প্রকাশকটিকে মুছে ফেলতে চান? এই কাজটি পূর্বাবস্থায় ফেরানো যাবে না।</p>
+              
+              <div className="flex justify-center gap-4">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setDeleteModalOpen(false)}
+                  className="px-6"
+                >
+                  বাতিল
+                </Button>
+                <Button 
+                  onClick={confirmDelete}
+                  className="bg-red-500 hover:bg-red-600 text-white px-6"
+                >
+                  মুছে ফেলুন
+                </Button>
+              </div>
             </div>
           </div>
         </div>

@@ -1,12 +1,16 @@
-//api/publishers/[id]
-
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-export async function GET(req: Request, { params }: any) {
+type ParamsType = {
+  params: Promise<{ id: string }>;
+};
+
+export async function GET(req: Request, context: ParamsType) {
+  const { id } = await context.params;
+
   try {
     const publisher = await prisma.publisher.findUnique({
-      where: { id: Number(params.id) },
+      where: { id: Number(id) },
     });
 
     if (!publisher)
@@ -14,16 +18,21 @@ export async function GET(req: Request, { params }: any) {
 
     return NextResponse.json(publisher);
   } catch (err) {
-    return NextResponse.json({ error: "Failed to load publisher" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to load publisher" },
+      { status: 500 }
+    );
   }
 }
 
-export async function PUT(req: Request, { params }: any) {
+export async function PUT(req: Request, context: ParamsType) {
+  const { id } = await context.params;
+
   try {
     const body = await req.json();
 
     const publisher = await prisma.publisher.update({
-      where: { id: Number(params.id) },
+      where: { id: Number(id) },
       data: {
         name: body.name,
         image: body.image ?? null,
@@ -36,10 +45,12 @@ export async function PUT(req: Request, { params }: any) {
   }
 }
 
-export async function DELETE(req: Request, { params }: any) {
+export async function DELETE(req: Request, context: ParamsType) {
+  const { id } = await context.params;
+
   try {
     await prisma.publisher.delete({
-      where: { id: Number(params.id) },
+      where: { id: Number(id) },
     });
 
     return NextResponse.json({ message: "Deleted" });

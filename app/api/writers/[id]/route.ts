@@ -1,45 +1,54 @@
-// app/api/writers/[id]/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-export async function GET(
-  req: Request,
-  { params }: { params: { id: string } }
-) {
-  const writer = await prisma.writer.findUnique({
-    where: { id: Number(params.id) },
-  });
+export async function GET(req: Request, context: { params: Promise<{ id: string }> }) {
+  const { id } = await context.params;
 
-  if (!writer)
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  try {
+    const writer = await prisma.writer.findUnique({
+      where: { id: Number(id) },
+    });
 
-  return NextResponse.json(writer);
+    if (!writer) {
+      return NextResponse.json({ error: "Writer not found" }, { status: 404 });
+    }
+
+    return NextResponse.json(writer);
+  } catch (error) {
+    return NextResponse.json({ error: "Failed to fetch writer" }, { status: 500 });
+  }
 }
 
-export async function PUT(
-  req: Request,
-  { params }: { params: { id: string } }
-) {
-  const data = await req.json();
+export async function PUT(req: Request, context: { params: Promise<{ id: string }> }) {
+  const { id } = await context.params;
 
-  const writer = await prisma.writer.update({
-    where: { id: Number(params.id) },
-    data: {
-      name: data.name,
-      image: data.image ?? null,
-    },
-  });
+  try {
+    const data = await req.json();
 
-  return NextResponse.json(writer);
+    const writer = await prisma.writer.update({
+      where: { id: Number(id) },
+      data: {
+        name: data.name,
+        image: data.image ?? null,
+      },
+    });
+
+    return NextResponse.json(writer);
+  } catch (error) {
+    return NextResponse.json({ error: "Failed to update writer" }, { status: 500 });
+  }
 }
 
-export async function DELETE(
-  req: Request,
-  { params }: { params: { id: string } }
-) {
-  await prisma.writer.delete({
-    where: { id: Number(params.id) },
-  });
+export async function DELETE(req: Request, context: { params: Promise<{ id: string }> }) {
+  const { id } = await context.params;
 
-  return NextResponse.json({ message: "Deleted" });
+  try {
+    await prisma.writer.delete({
+      where: { id: Number(id) },
+    });
+
+    return NextResponse.json({ message: "Writer deleted successfully" });
+  } catch (error) {
+    return NextResponse.json({ error: "Failed to delete writer" }, { status: 500 });
+  }
 }
