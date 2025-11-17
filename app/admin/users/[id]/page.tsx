@@ -68,6 +68,7 @@ export default function UserDetailPage() {
     role: "user",
     phone: "",
     note: "",
+    addresses: [""],
   });
 
   useEffect(() => {
@@ -87,12 +88,29 @@ export default function UserDetailPage() {
             })),
           };
 
+          // Normalize addresses array from Json
+          const rawAddress = userData.address || {};
+          let addresses: string[] = [];
+          if (Array.isArray(rawAddress.addresses)) {
+            addresses = rawAddress.addresses.filter(
+              (a: any) => typeof a === "string" && a.trim().length > 0
+            );
+          } else {
+            if (rawAddress.address_1) addresses.push(rawAddress.address_1);
+            if (rawAddress.address_2) addresses.push(rawAddress.address_2);
+            if (rawAddress.address_3) addresses.push(rawAddress.address_3);
+          }
+          if (addresses.length === 0) {
+            addresses = [""];
+          }
+
           setUser(normalizedUser);
           setFormData({
             name: userData.name || "",
             role: userData.role,
             phone: userData.phone || "",
             note: userData.note || "",
+            addresses,
           });
         } else {
           toast.error("ব্যবহারকারী লোড করতে ব্যর্থ হয়েছে");
@@ -115,12 +133,30 @@ export default function UserDetailPage() {
       setSaving(true);
       const loadingId = toast.loading("ব্যবহারকারী আপডেট করা হচ্ছে...");
 
+      const trimmedAddresses = formData.addresses
+        .map((a) => a.trim())
+        .filter((a) => a.length > 0);
+
+      if (trimmedAddresses.length === 0) {
+        toast.error("কমপক্ষে একটি ঠিকানা দিন");
+        setSaving(false);
+        return;
+      }
+
       const response = await fetch(`/api/users/${params.id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          name: formData.name,
+          role: formData.role,
+          phone: formData.phone,
+          note: formData.note,
+          address: {
+            addresses: trimmedAddresses,
+          },
+        }),
       });
 
       if (response.ok) {
@@ -467,6 +503,65 @@ export default function UserDetailPage() {
                     className="w-full px-4 py-3 rounded-xl border border-[#D1D8BE] focus:outline-none focus:ring-2 focus:ring-[#2C4A3B] focus:border-transparent transition-all duration-300"
                     placeholder="ফোন নম্বর"
                   />
+                </div>
+
+                {/* Addresses - dynamic list */}
+                <div className="md:col-span-2 space-y-3">
+                  {formData.addresses.map((addr, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <div className="flex-1">
+                        <label className="block text-sm font-medium text-[#2C4A3B] mb-2">
+                          {index === 0
+                            ? "ঠিকানা (কমপক্ষে একটি)"
+                            : `অতিরিক্ত ঠিকানা ${index + 1}`}
+                        </label>
+                        <input
+                          type="text"
+                          value={addr}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setFormData((prev) => {
+                              const copy = [...prev.addresses];
+                              copy[index] = value;
+                              return { ...prev, addresses: copy };
+                            });
+                          }}
+                          disabled={!editing}
+                          className="w-full px-4 py-3 rounded-xl border border-[#D1D8BE] focus:outline-none focus:ring-2 focus:ring-[#2C4A3B] focus:border-transparent transition-all duration-300"
+                          placeholder="বাড়ি/রাস্তা/এলাকা"
+                        />
+                      </div>
+                      {editing && formData.addresses.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              addresses: prev.addresses.filter((_, i) => i !== index),
+                            }))
+                          }
+                          className="mt-7 text-xs px-2 py-1 rounded-lg border border-red-300 text-red-600 hover:bg-red-50"
+                        >
+                          মুছুন
+                        </button>
+                      )}
+                    </div>
+                  ))}
+
+                  {editing && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          addresses: [...prev.addresses, ""],
+                        }))
+                      }
+                      className="text-xs px-3 py-2 rounded-xl border border-[#D1D8BE] text-[#2C4A3B] hover:bg-[#EEEFE0]"
+                    >
+                      + আরো ঠিকানা যোগ করুন
+                    </button>
+                  )}
                 </div>
 
                 <div className="md:col-span-2">

@@ -56,6 +56,7 @@ export default function AdminUsersPage() {
     role: "user",
     phone: "",
     password: "",
+    addresses: [""],
   });
 
   const fetchUsers = async (showRefresh = false) => {
@@ -132,6 +133,15 @@ export default function AdminUsersPage() {
       return;
     }
 
+    const normalizedAddresses = newUser.addresses
+      .map((a) => a.trim())
+      .filter((a) => a.length > 0);
+
+    if (normalizedAddresses.length === 0) {
+      setCreateError("কমপক্ষে একটি ঠিকানা দিন");
+      return;
+    }
+
     try {
       setCreating(true);
       const response = await fetch("/api/users", {
@@ -143,6 +153,7 @@ export default function AdminUsersPage() {
           role: newUser.role,
           phone: newUser.phone || null,
           passwordHash: newUser.password,
+          addresses: normalizedAddresses,
         }),
       });
 
@@ -155,7 +166,14 @@ export default function AdminUsersPage() {
       }
 
       setShowCreateModal(false);
-      setNewUser({ email: "", name: "", role: "user", phone: "", password: "" });
+      setNewUser({
+        email: "",
+        name: "",
+        role: "user",
+        phone: "",
+        password: "",
+        addresses: [""],
+      });
       await fetchUsers(true);
     } catch (err) {
       console.error("Error creating user:", err);
@@ -528,6 +546,62 @@ export default function AdminUsersPage() {
                     required
                   />
                 </div>
+              </div>
+
+              {/* Address Fields - Dynamic */}
+              <div className="space-y-3">
+                {newUser.addresses.map((addr, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <div className="flex-1">
+                      <label className="block text-sm font-medium text-[#2C4A3B] mb-1">
+                        {index === 0 ? "ঠিকানা (কমপক্ষে একটি)" : `অতিরিক্ত ঠিকানা ${index + 1}`}
+                      </label>
+                      <input
+                        type="text"
+                        value={addr}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setNewUser((prev) => {
+                            const next = { ...prev };
+                            const copy = [...next.addresses];
+                            copy[index] = value;
+                            next.addresses = copy;
+                            return next;
+                          });
+                        }}
+                        className="w-full px-3 py-2 rounded-xl border border-[#D1D8BE] focus:outline-none focus:ring-2 focus:ring-[#2C4A3B] focus:border-transparent text-sm"
+                        placeholder="বাড়ি/রাস্তা/এলাকা"
+                      />
+                    </div>
+                    {newUser.addresses.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setNewUser((prev) => ({
+                            ...prev,
+                            addresses: prev.addresses.filter((_, i) => i !== index),
+                          }))
+                        }
+                        className="mt-6 text-xs px-2 py-1 rounded-lg border border-red-300 text-red-600 hover:bg-red-50"
+                      >
+                        মুছুন
+                      </button>
+                    )}
+                  </div>
+                ))}
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setNewUser((prev) => ({
+                      ...prev,
+                      addresses: [...prev.addresses, ""],
+                    }))
+                  }
+                  className="text-xs px-3 py-2 rounded-xl border border-[#D1D8BE] text-[#2C4A3B] hover:bg-[#EEEFE0]"
+                >
+                  + আরো ঠিকানা যোগ করুন
+                </button>
               </div>
 
               {createError && (
