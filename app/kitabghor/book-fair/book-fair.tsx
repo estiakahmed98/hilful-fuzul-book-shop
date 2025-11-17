@@ -181,7 +181,7 @@ export default function BookFairPage() {
                     <CardContent className="p-4 sm:p-5">
                       {/* Book Title */}
                       <Link href={`/kitabghor/books/${book.id}`}>
-                        <h3 className="font-bold text-base sm:text-lg mb-2 text-gray-800 hover:text-[#819A91] transition-colors duration-300 line-clamp-2 leading-tight group-hover:translate-x-1 transition-transform">
+                        <h3 className="font-bold text-base sm:text-lg mb-2 text-gray-800 hover:text-[#819A91] duration-300 line-clamp-2 leading-tight group-hover:translate-x-1 transition-transform">
                           {book.name}
                         </h3>
                       </Link>

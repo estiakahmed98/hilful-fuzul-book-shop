@@ -82,12 +82,24 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email, name, role, phone, passwordHash } = body;
+    const { email, name, role, phone, passwordHash, addresses } = body;
 
     // Validate required fields
     if (!email || !passwordHash) {
       return NextResponse.json(
         { error: 'Email and password are required' },
+        { status: 400 }
+      );
+    }
+
+    const rawAddresses = Array.isArray(addresses) ? addresses : [];
+    const normalizedAddresses = rawAddresses
+      .map((a) => (typeof a === 'string' ? a.trim() : ''))
+      .filter((a) => a.length > 0);
+
+    if (normalizedAddresses.length === 0) {
+      return NextResponse.json(
+        { error: 'At least one address is required' },
         { status: 400 }
       );
     }
@@ -99,6 +111,9 @@ export async function POST(request: NextRequest) {
         role: role || 'user',
         phone,
         passwordHash, // In real app, this should be hashed
+        address: {
+          addresses: normalizedAddresses,
+        },
       },
     });
 

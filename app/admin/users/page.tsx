@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import UserTable from "@/components/admin/users/UserTable";
 import UserFilters from "@/components/admin/users/UserFilters";
 import Pagination from "@/components/admin/users/Pagination";
-import { Users, Loader2, AlertCircle, RefreshCw } from "lucide-react";
+import { Users, Loader2, AlertCircle, RefreshCw, UserPlus } from "lucide-react";
 
 interface User {
   id: string;
@@ -47,6 +47,17 @@ export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createError, setCreateError] = useState("");
+  const [newUser, setNewUser] = useState({
+    email: "",
+    name: "",
+    role: "user",
+    phone: "",
+    password: "",
+    addresses: [""],
+  });
 
   const fetchUsers = async (showRefresh = false) => {
     try {
@@ -113,6 +124,65 @@ export default function AdminUsersPage() {
     fetchUsers(true);
   };
 
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCreateError("");
+
+    if (!newUser.email || !newUser.password) {
+      setCreateError("ইমেইল এবং পাসওয়ার্ড প্রয়োজন");
+      return;
+    }
+
+    const normalizedAddresses = newUser.addresses
+      .map((a) => a.trim())
+      .filter((a) => a.length > 0);
+
+    if (normalizedAddresses.length === 0) {
+      setCreateError("কমপক্ষে একটি ঠিকানা দিন");
+      return;
+    }
+
+    try {
+      setCreating(true);
+      const response = await fetch("/api/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: newUser.email,
+          name: newUser.name || null,
+          role: newUser.role,
+          phone: newUser.phone || null,
+          passwordHash: newUser.password,
+          addresses: normalizedAddresses,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        setCreateError(
+          data?.error || "ব্যবহারকারী তৈরি করতে ব্যর্থ হয়েছে"
+        );
+        return;
+      }
+
+      setShowCreateModal(false);
+      setNewUser({
+        email: "",
+        name: "",
+        role: "user",
+        phone: "",
+        password: "",
+        addresses: [""],
+      });
+      await fetchUsers(true);
+    } catch (err) {
+      console.error("Error creating user:", err);
+      setCreateError("ব্যবহারকারী তৈরি করতে ত্রুটি হয়েছে");
+    } finally {
+      setCreating(false);
+    }
+  };
+
   const handleUserUpdate = (userId: string, updates: Partial<User>) => {
     setUsers((prev) =>
       prev.map((user) => (user.id === userId ? { ...user, ...updates } : user))
@@ -174,17 +244,30 @@ export default function AdminUsersPage() {
               </div>
             </div>
 
-            {/* Refresh Button */}
-            <button
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="flex items-center space-x-2 px-4 py-2 rounded-xl bg-white border border-[#D1D8BE] text-[#819A91] hover:bg-[#819A91] hover:text-[#EEEFE0] hover:border-[#819A91] transition-all duration-300 shadow-sm font-medium self-start sm:self-auto"
-            >
-              <RefreshCw
-                className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
-              />
-              <span>{refreshing ? "রিফ্রেশ হচ্ছে..." : "রিফ্রেশ"}</span>
-            </button>
+            {/* Actions: Add User + Refresh */}
+            <div className="flex items-center gap-2 self-start sm:self-auto">
+              <button
+                onClick={() => {
+                  setCreateError("");
+                  setShowCreateModal(true);
+                }}
+                className="flex items-center space-x-2 px-4 py-2 rounded-xl bg-[#2C4A3B] text-[#EEEFE0] hover:bg-[#1A3325] transition-all duration-300 shadow-sm font-medium"
+              >
+                <UserPlus className="h-4 w-4" />
+                <span>নতুন ব্যবহারকারী</span>
+              </button>
+
+              <button
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="flex items-center space-x-2 px-4 py-2 rounded-xl bg-white border border-[#D1D8BE] text-[#819A91] hover:bg-[#819A91] hover:text-[#EEEFE0] hover:border-[#819A91] transition-all duration-300 shadow-sm font-medium"
+              >
+                <RefreshCw
+                  className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
+                />
+                <span>{refreshing ? "রিফ্রেশ হচ্ছে..." : "রিফ্রেশ"}</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -355,6 +438,201 @@ export default function AdminUsersPage() {
           )}
         </div>
       </div>
+
+      {/* Add User Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl shadow-2xl border border-[#D1D8BE] max-w-lg w-full mx-4 p-6">
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center space-x-2">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#2C4A3B] to-[#819A91] flex items-center justify-center text-[#EEEFE0]">
+                  <UserPlus className="h-5 w-5" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-[#2C4A3B]">
+                    নতুন ব্যবহারকারী যোগ করুন
+                  </h2>
+                  <p className="text-xs text-[#819A91] mt-0.5">
+                    ইমেইল ও পাসওয়ার্ড দিয়ে দ্রুত নতুন ব্যবহারকারী তৈরি করুন
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateUser} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-[#2C4A3B] mb-1">
+                  ইমেইল
+                </label>
+                <input
+                  type="email"
+                  value={newUser.email}
+                  onChange={(e) =>
+                    setNewUser((prev) => ({ ...prev, email: e.target.value }))
+                  }
+                  className="w-full px-3 py-2 rounded-xl border border-[#D1D8BE] focus:outline-none focus:ring-2 focus:ring-[#2C4A3B] focus:border-transparent text-sm"
+                  placeholder="user@example.com"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-[#2C4A3B] mb-1">
+                    নাম (ঐচ্ছিক)
+                  </label>
+                  <input
+                    type="text"
+                    value={newUser.name}
+                    onChange={(e) =>
+                      setNewUser((prev) => ({ ...prev, name: e.target.value }))
+                    }
+                    className="w-full px-3 py-2 rounded-xl border border-[#D1D8BE] focus:outline-none focus:ring-2 focus:ring-[#2C4A3B] focus:border-transparent text-sm"
+                    placeholder="ব্যবহারকারীর নাম"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#2C4A3B] mb-1">
+                    ভূমিকা
+                  </label>
+                  <select
+                    value={newUser.role}
+                    onChange={(e) =>
+                      setNewUser((prev) => ({ ...prev, role: e.target.value }))
+                    }
+                    className="w-full px-3 py-2 rounded-xl border border-[#D1D8BE] focus:outline-none focus:ring-2 focus:ring-[#2C4A3B] focus:border-transparent text-sm"
+                  >
+                    <option value="user">ব্যবহারকারী</option>
+                    <option value="admin">অ্যাডমিন</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-[#2C4A3B] mb-1">
+                    ফোন (ঐচ্ছিক)
+                  </label>
+                  <input
+                    type="tel"
+                    value={newUser.phone}
+                    onChange={(e) =>
+                      setNewUser((prev) => ({ ...prev, phone: e.target.value }))
+                    }
+                    className="w-full px-3 py-2 rounded-xl border border-[#D1D8BE] focus:outline-none focus:ring-2 focus:ring-[#2C4A3B] focus:border-transparent text-sm"
+                    placeholder="ফোন নম্বর"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#2C4A3B] mb-1">
+                    পাসওয়ার্ড
+                  </label>
+                  <input
+                    type="password"
+                    value={newUser.password}
+                    onChange={(e) =>
+                      setNewUser((prev) => ({ ...prev, password: e.target.value }))
+                    }
+                    className="w-full px-3 py-2 rounded-xl border border-[#D1D8BE] focus:outline-none focus:ring-2 focus:ring-[#2C4A3B] focus:border-transparent text-sm"
+                    placeholder="কমপক্ষে ৬ অক্ষর"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Address Fields - Dynamic */}
+              <div className="space-y-3">
+                {newUser.addresses.map((addr, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <div className="flex-1">
+                      <label className="block text-sm font-medium text-[#2C4A3B] mb-1">
+                        {index === 0 ? "ঠিকানা (কমপক্ষে একটি)" : `অতিরিক্ত ঠিকানা ${index + 1}`}
+                      </label>
+                      <input
+                        type="text"
+                        value={addr}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setNewUser((prev) => {
+                            const next = { ...prev };
+                            const copy = [...next.addresses];
+                            copy[index] = value;
+                            next.addresses = copy;
+                            return next;
+                          });
+                        }}
+                        className="w-full px-3 py-2 rounded-xl border border-[#D1D8BE] focus:outline-none focus:ring-2 focus:ring-[#2C4A3B] focus:border-transparent text-sm"
+                        placeholder="বাড়ি/রাস্তা/এলাকা"
+                      />
+                    </div>
+                    {newUser.addresses.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setNewUser((prev) => ({
+                            ...prev,
+                            addresses: prev.addresses.filter((_, i) => i !== index),
+                          }))
+                        }
+                        className="mt-6 text-xs px-2 py-1 rounded-lg border border-red-300 text-red-600 hover:bg-red-50"
+                      >
+                        মুছুন
+                      </button>
+                    )}
+                  </div>
+                ))}
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setNewUser((prev) => ({
+                      ...prev,
+                      addresses: [...prev.addresses, ""],
+                    }))
+                  }
+                  className="text-xs px-3 py-2 rounded-xl border border-[#D1D8BE] text-[#2C4A3B] hover:bg-[#EEEFE0]"
+                >
+                  + আরো ঠিকানা যোগ করুন
+                </button>
+              </div>
+
+              {createError && (
+                <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                  {createError}
+                </p>
+              )}
+
+              <div className="mt-4 flex justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(false)}
+                  className="px-4 py-2 rounded-xl border border-[#D1D8BE] text-[#819A91] hover:bg-gray-50 transition-all duration-300 text-sm font-medium"
+                >
+                  বাতিল
+                </button>
+                <button
+                  type="submit"
+                  disabled={creating}
+                  className="px-4 py-2 rounded-xl bg-[#2C4A3B] text-[#EEEFE0] hover:bg-[#1A3325] transition-all duration-300 text-sm font-medium disabled:opacity-60 flex items-center space-x-2"
+                >
+                  {creating && (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  )}
+                  <span>{creating ? "তৈরি হচ্ছে..." : "ব্যবহারকারী তৈরি করুন"}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
