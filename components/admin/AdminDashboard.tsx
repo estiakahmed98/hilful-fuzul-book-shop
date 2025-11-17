@@ -124,9 +124,7 @@ export default function GlassmorphismAdminDashboard() {
           <p className="text-gray-800 text-lg font-semibold">
             ড্যাশবোর্ড লোড হচ্ছে...
           </p>
-          <p className="text-gray-600 text-sm mt-2">
-            অনুগ্রহ করে অপেক্ষা করুন
-          </p>
+          <p className="text-gray-600 text-sm mt-2">অনুগ্রহ করে অপেক্ষা করুন</p>
         </div>
       </div>
     );
@@ -169,15 +167,7 @@ export default function GlassmorphismAdminDashboard() {
     }
 
     if (timeRange === "week") {
-      const labels = [
-        "সোম",
-        "মঙ্গল",
-        "বুধ",
-        "বৃহস্পতি",
-        "শুক্র",
-        "শনি",
-        "রবি",
-      ];
+      const labels = ["সোম", "মঙ্গল", "বুধ", "বৃহস্পতি", "শুক্র", "শনি", "রবি"];
       const perDaySales = totalOrders / labels.length || 0;
       const perDayRevenue = totalRevenue / labels.length || 0;
       return labels.map((label, idx) => ({
@@ -244,14 +234,16 @@ export default function GlassmorphismAdminDashboard() {
     0
   );
 
-  const categoryData = stats.topProducts.slice(0, 5).map((product: any, index) => ({
-    name: product.name,
-    value:
-      totalSoldAcrossTop > 0
-        ? Math.round(((product.soldCount || 0) / totalSoldAcrossTop) * 100)
-        : 0,
-    color: categoryColors[index % categoryColors.length],
-  }));
+  const categoryData = stats.topProducts
+    .slice(0, 5)
+    .map((product: any, index) => ({
+      name: product.name,
+      value:
+        totalSoldAcrossTop > 0
+          ? Math.round(((product.soldCount || 0) / totalSoldAcrossTop) * 100)
+          : 0,
+      color: categoryColors[index % categoryColors.length],
+    }));
 
   const rangeTitleMap: Record<typeof timeRange, string> = {
     today: "আজকের কর্মক্ষমতা",
@@ -277,58 +269,53 @@ export default function GlassmorphismAdminDashboard() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f8fff2f5] to-[#d9f3c1]/30 p-4 lg:p-6">
       <div>
-        {/* Header */}
-        <div className="text-center mb-12">
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <div className="w-2 h-10 bg-gradient-to-b from-[#2C4A3B] to-[#819A91] rounded-full"></div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-[#2C4A3B] to-[#819A91] bg-clip-text text-transparent">
-              ড্যাশবোর্ড বিশ্লেষণ
-            </h1>
-            <div className="w-2 h-10 bg-gradient-to-b from-[#819A91] to-[#2C4A3B] rounded-full"></div>
+        <div className="flex justify-between">
+          {/* Header */}
+          <div className="text-center mb-12">
+            <div className="flex items-center justify-center gap-3 mb-4">
+              <div className="w-2 h-10 bg-gradient-to-b from-[#2C4A3B] to-[#819A91] rounded-full"></div>
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-[#2C4A3B] to-[#819A91] bg-clip-text text-transparent">
+                ড্যাশবোর্ড বিশ্লেষণ
+              </h1>
+              <div className="w-2 h-10 bg-gradient-to-b from-[#819A91] to-[#2C4A3B] rounded-full"></div>
+            </div>
+            <p className="text-gray-600 text-lg max-w-2xl mx-auto">
+              রিয়েল-টাইম ডেটা এবং পারফরম্যান্স মেট্রিক্স
+            </p>
           </div>
-          <p className="text-gray-600 text-lg max-w-2xl mx-auto">
-            রিয়েল-টাইম ডেটা এবং পারফরম্যান্স মেট্রিক্স
-          </p>
-        </div>
 
-        {/* Controls */}
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-center gap-6 mb-8">
+          {/* Controls */}
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-center gap-6 mb-8">
+            <div className="flex bg-white/80 rounded-2xl p-1 shadow-lg">
+              {["today", "week", "month", "year"].map((range) => (
+                <button
+                  key={range}
+                  onClick={() => setTimeRange(range as any)}
+                  className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-300 ${
+                    timeRange === range
+                      ? "bg-gradient-to-r from-[#2C4A3B] to-[#819A91] text-white shadow-md"
+                      : "text-gray-600 hover:text-gray-800"
+                  }`}
+                >
+                  {range === "today" && "আজ"}
+                  {range === "week" && "সপ্তাহ"}
+                  {range === "month" && "মাস"}
+                  {range === "year" && "বছর"}
+                </button>
+              ))}
+            </div>
 
-          <div className="flex bg-white/80 rounded-2xl p-1 shadow-lg">
-            {["today", "week", "month", "year"].map((range) => (
+            <div className="flex gap-2">
               <button
-                key={range}
-                onClick={() => setTimeRange(range as any)}
-                className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-300 ${
-                  timeRange === range
-                    ? "bg-gradient-to-r from-[#2C4A3B] to-[#819A91] text-white shadow-md"
-                    : "text-gray-600 hover:text-gray-800"
-                }`}
+                onClick={fetchDashboardData}
+                disabled={loading}
+                className="p-2 bg-white/80 text-gray-600 hover:text-gray-800 hover:bg-white disabled:opacity-50 rounded-2xl shadow-lg transition-all duration-300"
               >
-                {range === "today" && "আজ"}
-                {range === "week" && "সপ্তাহ"}
-                {range === "month" && "মাস"}
-                {range === "year" && "বছর"}
+                <RefreshCw
+                  className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+                />
               </button>
-            ))}
-          </div>
-
-          <div className="flex gap-2">
-            <button className="p-2 bg-white/80 text-gray-600 hover:text-gray-800 hover:bg-white rounded-2xl shadow-lg transition-all duration-300">
-              <Download className="h-4 w-4" />
-            </button>
-            <button className="p-2 bg-white/80 text-gray-600 hover:text-gray-800 hover:bg-white rounded-2xl shadow-lg transition-all duration-300">
-              <Filter className="h-4 w-4" />
-            </button>
-            <button
-              onClick={fetchDashboardData}
-              disabled={loading}
-              className="p-2 bg-white/80 text-gray-600 hover:text-gray-800 hover:bg-white disabled:opacity-50 rounded-2xl shadow-lg transition-all duration-300"
-            >
-              <RefreshCw
-                className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
-              />
-            </button>
+            </div>
           </div>
         </div>
 
@@ -366,7 +353,9 @@ export default function GlassmorphismAdminDashboard() {
           <div className="bg-white/80 rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 group">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-600 text-sm font-semibold">মোট অর্ডার</p>
+                <p className="text-gray-600 text-sm font-semibold">
+                  মোট অর্ডার
+                </p>
                 <p className="text-3xl font-bold text-gray-800 mt-2 group-hover:scale-105 transition-transform duration-300">
                   {formatNumber(stats.totalOrders)}
                 </p>
@@ -433,9 +422,7 @@ export default function GlassmorphismAdminDashboard() {
                   <span className="text-sm text-gray-700 font-semibold">
                     {stats.lowStockProducts} লো স্টক
                   </span>
-                  <span className="text-gray-600 text-sm ml-2">
-                    মনিটরিং
-                  </span>
+                  <span className="text-gray-600 text-sm ml-2">মনিটরিং</span>
                 </div>
               </div>
               <div className="p-3 bg-gradient-to-r from-[#2C4A3B] to-[#819A91] rounded-full group-hover:scale-110 transition-transform duration-300">
@@ -571,7 +558,9 @@ export default function GlassmorphismAdminDashboard() {
                 <Target className="h-6 w-6 text-white" />
               </div>
               <div>
-                <p className="text-sm text-gray-600 font-semibold">কনভার্সন রেট</p>
+                <p className="text-sm text-gray-600 font-semibold">
+                  কনভার্সন রেট
+                </p>
                 <p className="text-xl font-bold text-gray-800">
                   {stats.conversionRate}%
                 </p>
@@ -603,7 +592,9 @@ export default function GlassmorphismAdminDashboard() {
                 <Award className="h-6 w-6 text-white" />
               </div>
               <div>
-                <p className="text-sm text-gray-600 font-semibold">সাফল্যের হার</p>
+                <p className="text-sm text-gray-600 font-semibold">
+                  সাফল্যের হার
+                </p>
                 <p className="text-xl font-bold text-gray-800">
                   {stats.successRate}%
                 </p>
@@ -753,7 +744,9 @@ export default function GlassmorphismAdminDashboard() {
                 className={`p-6 bg-gradient-to-br ${action.color} rounded-2xl text-center border border-white/20 hover:shadow-lg hover:scale-105 transition-all duration-300`}
               >
                 <action.icon className="h-8 w-8 mx-auto mb-3 text-white" />
-                <p className="font-semibold text-sm text-white">{action.label}</p>
+                <p className="font-semibold text-sm text-white">
+                  {action.label}
+                </p>
               </Link>
             ))}
           </div>
