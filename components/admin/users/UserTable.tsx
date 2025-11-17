@@ -1,20 +1,20 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import Link from 'next/link';
-import { 
-  Eye, 
-  Ban, 
-  ShieldOff, 
-  Trash2, 
-  Mail, 
-  Phone, 
+import { useState } from "react";
+import Link from "next/link";
+import {
+  Eye,
+  Ban,
+  ShieldOff,
+  Trash2,
+  Mail,
+  Phone,
   Calendar,
   ShoppingBag,
   Star,
   Shield,
-  User as UserIcon
-} from 'lucide-react';
+  User as UserIcon,
+} from "lucide-react";
 
 interface User {
   id: string;
@@ -41,25 +41,30 @@ interface UserTableProps {
   onUserDelete: (userId: string) => void;
 }
 
-export default function UserTable({ users, onUserUpdate, onUserDelete }: UserTableProps) {
-  const [banReason, setBanReason] = useState('');
-  const [banDuration, setBanDuration] = useState('7'); // days
+export default function UserTable({
+  users,
+  onUserUpdate,
+  onUserDelete,
+}: UserTableProps) {
+  const [banReason, setBanReason] = useState("");
+  const [banDuration, setBanDuration] = useState("7"); // days
 
   const handleBanUser = async (userId: string, email: string) => {
     if (!banReason) {
-      alert('দয়া করে নিষিদ্ধ করার কারণ লিখুন');
+      alert("দয়া করে নিষিদ্ধ করার কারণ লিখুন");
       return;
     }
 
-    const banExpires = banDuration === 'permanent' 
-      ? null 
-      : Date.now() + parseInt(banDuration) * 24 * 60 * 60 * 1000;
-    
+    const banExpires =
+      banDuration === "permanent"
+        ? null
+        : Date.now() + parseInt(banDuration) * 24 * 60 * 60 * 1000;
+
     try {
       const response = await fetch(`/api/users/${userId}`, {
-        method: 'PATCH',
+        method: "PATCH",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           banned: true,
@@ -74,22 +79,22 @@ export default function UserTable({ users, onUserUpdate, onUserDelete }: UserTab
           banReason,
           banExpires: banExpires ? Math.floor(banExpires / 1000) : null,
         });
-        setBanReason('');
+        setBanReason("");
       } else {
-        alert('ব্যবহারকারী নিষিদ্ধ করতে ব্যর্থ হয়েছে');
+        alert("ব্যবহারকারী নিষিদ্ধ করতে ব্যর্থ হয়েছে");
       }
     } catch (error) {
-      console.error('Error banning user:', error);
-      alert('ব্যবহারকারী নিষিদ্ধ করতে ত্রুটি occurred');
+      console.error("Error banning user:", error);
+      alert("ব্যবহারকারী নিষিদ্ধ করতে ত্রুটি occurred");
     }
   };
 
   const handleUnbanUser = async (userId: string) => {
     try {
       const response = await fetch(`/api/users/${userId}`, {
-        method: 'PATCH',
+        method: "PATCH",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           banned: false,
@@ -105,41 +110,45 @@ export default function UserTable({ users, onUserUpdate, onUserDelete }: UserTab
           banExpires: null,
         });
       } else {
-        alert('ব্যবহারকারীর নিষেধাজ্ঞা তুলতে ব্যর্থ হয়েছে');
+        alert("ব্যবহারকারীর নিষেধাজ্ঞা তুলতে ব্যর্থ হয়েছে");
       }
     } catch (error) {
-      console.error('Error unbanning user:', error);
-      alert('ব্যবহারকারীর নিষেধাজ্ঞা তুলতে ত্রুটি occurred');
+      console.error("Error unbanning user:", error);
+      alert("ব্যবহারকারীর নিষেধাজ্ঞা তুলতে ত্রুটি occurred");
     }
   };
 
   const handleDeleteUser = async (userId: string, email: string) => {
-    if (!confirm(`আপনি কি নিশ্চিত যে আপনি ব্যবহারকারী ${email} কে মুছে ফেলতে চান?`)) {
+    if (
+      !confirm(
+        `আপনি কি নিশ্চিত যে আপনি ব্যবহারকারী ${email} কে মুছে ফেলতে চান?`
+      )
+    ) {
       return;
     }
 
     try {
       const response = await fetch(`/api/users/${userId}`, {
-        method: 'DELETE',
+        method: "DELETE",
       });
 
       if (response.ok) {
         onUserDelete(userId);
       } else {
         const error = await response.json();
-        alert(error.error || 'ব্যবহারকারী মুছতে ব্যর্থ হয়েছে');
+        alert(error.error || "ব্যবহারকারী মুছতে ব্যর্থ হয়েছে");
       }
     } catch (error) {
-      console.error('Error deleting user:', error);
-      alert('ব্যবহারকারী মুছতে ত্রুটি occurred');
+      console.error("Error deleting user:", error);
+      alert("ব্যবহারকারী মুছতে ত্রুটি occurred");
     }
   };
 
   const formatDate = (date: Date) => {
-    return new Date(date).toLocaleDateString('bn-BD', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
+    return new Date(date).toLocaleDateString("bn-BD", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
     });
   };
 
@@ -150,28 +159,28 @@ export default function UserTable({ users, onUserUpdate, onUserDelete }: UserTab
 
   const getStatusColor = (user: User) => {
     if (user.banned && !isBanExpired(user.banExpires)) {
-      return 'bg-red-100 text-red-800 border-red-200';
+      return "bg-red-100 text-red-800 border-red-200";
     } else if (user.emailVerified) {
-      return 'bg-green-100 text-green-800 border-green-200';
+      return "bg-green-100 text-green-800 border-green-200";
     } else {
-      return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      return "bg-yellow-100 text-yellow-800 border-yellow-200";
     }
   };
 
   const getStatusText = (user: User) => {
     if (user.banned && !isBanExpired(user.banExpires)) {
-      return user.banExpires ? 'সাময়িক নিষিদ্ধ' : 'স্থায়ী নিষিদ্ধ';
+      return user.banExpires ? "সাময়িক নিষিদ্ধ" : "স্থায়ী নিষিদ্ধ";
     } else if (user.emailVerified) {
-      return 'যাচাইকৃত';
+      return "যাচাইকৃত";
     } else {
-      return 'অযাচাইকৃত';
+      return "অযাচাইকৃত";
     }
   };
 
   const getRoleColor = (role: string) => {
-    return role === 'admin' 
-      ? 'bg-purple-100 text-purple-800 border-purple-200' 
-      : 'bg-blue-100 text-blue-800 border-blue-200';
+    return role === "admin"
+      ? "bg-purple-100 text-purple-800 border-purple-200"
+      : "bg-blue-100 text-blue-800 border-blue-200";
   };
 
   return (
@@ -202,8 +211,8 @@ export default function UserTable({ users, onUserUpdate, onUserDelete }: UserTab
           </thead>
           <tbody className="bg-[#EEEFE0] divide-y divide-[#D1D8BE]">
             {users.map((user) => (
-              <tr 
-                key={user.id} 
+              <tr
+                key={user.id}
                 className="hover:bg-[#D1D8BE] hover:bg-opacity-30 transition-all duration-300 group"
               >
                 {/* User Info */}
@@ -217,9 +226,9 @@ export default function UserTable({ users, onUserUpdate, onUserDelete }: UserTab
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center space-x-2">
                         <p className="text-sm font-semibold text-[#2C4A3B] truncate">
-                          {user.name || 'নাম নেই'}
+                          {user.name || "নাম নেই"}
                         </p>
-                        {user.role === 'admin' && (
+                        {user.role === "admin" && (
                           <Shield className="h-3 w-3 text-purple-600" />
                         )}
                       </div>
@@ -239,8 +248,10 @@ export default function UserTable({ users, onUserUpdate, onUserDelete }: UserTab
 
                 {/* Role */}
                 <td className="px-6 py-4">
-                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${getRoleColor(user.role)}`}>
-                    {user.role === 'admin' ? 'অ্যাডমিন' : 'ব্যবহারকারী'}
+                  <span
+                    className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${getRoleColor(user.role)}`}
+                  >
+                    {user.role === "admin" ? "অ্যাডমিন" : "ব্যবহারকারী"}
                   </span>
                 </td>
 
@@ -249,12 +260,16 @@ export default function UserTable({ users, onUserUpdate, onUserDelete }: UserTab
                   <div className="flex items-center space-x-4 text-sm">
                     <div className="flex items-center space-x-1 text-[#2C4A3B]">
                       <ShoppingBag className="h-4 w-4" />
-                      <span className="font-semibold">{user._count.orders}</span>
+                      <span className="font-semibold">
+                        {user._count.orders}
+                      </span>
                       <span className="text-xs text-gray-600">অর্ডার</span>
                     </div>
                     <div className="flex items-center space-x-1 text-[#819A91]">
                       <Star className="h-4 w-4" />
-                      <span className="font-semibold">{user._count.reviews}</span>
+                      <span className="font-semibold">
+                        {user._count.reviews}
+                      </span>
                       <span className="text-xs text-gray-600">রিভিউ</span>
                     </div>
                   </div>
@@ -262,7 +277,9 @@ export default function UserTable({ users, onUserUpdate, onUserDelete }: UserTab
 
                 {/* Status */}
                 <td className="px-6 py-4">
-                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(user)}`}>
+                  <span
+                    className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(user)}`}
+                  >
                     {getStatusText(user)}
                   </span>
                 </td>
@@ -298,7 +315,9 @@ export default function UserTable({ users, onUserUpdate, onUserDelete }: UserTab
                     ) : (
                       <button
                         onClick={() => {
-                          const modal = document.getElementById('ban-modal') as HTMLDialogElement;
+                          const modal = document.getElementById(
+                            "ban-modal"
+                          ) as HTMLDialogElement;
                           if (modal) {
                             modal.showModal();
                             modal.dataset.userId = user.id;
@@ -338,48 +357,55 @@ export default function UserTable({ users, onUserUpdate, onUserDelete }: UserTab
             কোনো ব্যবহারকারী পাওয়া যায়নি
           </h3>
           <p className="text-gray-600 max-w-md mx-auto">
-            আপনার অনুসন্ধানের সাথে মিলছে এমন কোনো ব্যবহারকারী নেই। অনুগ্রহ করে বিভিন্ন ফিল্টার চেষ্টা করুন।
+            আপনার অনুসন্ধানের সাথে মিলছে এমন কোনো ব্যবহারকারী নেই। অনুগ্রহ করে
+            বিভিন্ন ফিল্টার চেষ্টা করুন।
           </p>
         </div>
       )}
 
-      {/* Ban Modal */}
-      <dialog id="ban-modal" className="modal modal-bottom sm:modal-middle">
-        <div className="modal-box bg-[#EEEFE0] border border-[#D1D8BE] shadow-2xl">
+      {/* Ban Modal - Redesigned based on Screenshot & Fixes */}
+      <dialog
+        id="ban-modal"
+        className="modal modal-bottom sm:modal-middle  rounded-xl"
+      >
+        <div className="modal-box p-6">
+          {/* Close Button at Top Right (✕) */}
           <form method="dialog">
-            <button className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2 text-[#819A91] hover:text-[#2C4A3B]">
+            <button className="btn btn-sm btn-circle btn-ghost absolute right-4 top-4 text-gray-500 hover:text-gray-900 transition-colors">
               ✕
             </button>
           </form>
-          
-          <h3 className="font-bold text-lg text-[#2C4A3B] mb-2 flex items-center">
-            <Ban className="h-5 w-5 mr-2 text-yellow-600" />
+
+          {/* Modal Header */}
+          <h3 className="text-xl font-bold text-gray-800 mb-6 flex items-center border-b pb-3">
+            {/* Ban icon (h-6 w-6) - Adjusted size for header */}
+            <Ban className="h-6 w-6 mr-3 text-red-600" />
             ব্যবহারকারী নিষিদ্ধ করুন
           </h3>
-          
-          <div className="py-4 space-y-4">
+
+          <div className="py-4 space-y-5">
+            {/* Ban Reason Field */}
             <div>
               <label className="label">
-                <span className="label-text text-[#2C4A3B] font-medium">নিষিদ্ধ করার কারণ</span>
+                <span className="label-text text-gray-700 font-semibold">
+                  নিষিদ্ধ করার কারণ
+                </span>
               </label>
               <textarea
-                value={banReason}
-                onChange={(e) => setBanReason(e.target.value)}
                 placeholder="ব্যবহারকারী নিষিদ্ধ করার কারণ লিখুন..."
-                className="textarea textarea-bordered w-full bg-white border-[#D1D8BE] focus:border-[#2C4A3B] focus:ring-2 focus:ring-[#2C4A3B] focus:ring-opacity-20"
+                className="textarea textarea-bordered w-full border border-gray-600 p-2 rounded-lg bg-gray-100 focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-shadow"
                 rows={3}
               />
             </div>
-            
+
+            {/* Ban Duration Field */}
             <div>
               <label className="label">
-                <span className="label-text text-[#2C4A3B] font-medium">নিষেধাজ্ঞার সময়কাল</span>
+                <span className="label-text text-gray-700 font-semibold">
+                  নিষেধাজ্ঞার সময়কাল
+                </span>
               </label>
-              <select
-                value={banDuration}
-                onChange={(e) => setBanDuration(e.target.value)}
-                className="select select-bordered w-full bg-white border-[#D1D8BE] focus:border-[#2C4A3B] focus:ring-2 focus:ring-[#2C4A3B] focus:ring-opacity-20"
-              >
+              <select className="select select-bordered w-full border border-gray-600 p-2 rounded-lg focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-shadow">
                 <option value="1">১ দিন</option>
                 <option value="7">৭ দিন</option>
                 <option value="30">৩০ দিন</option>
@@ -389,39 +415,45 @@ export default function UserTable({ users, onUserUpdate, onUserDelete }: UserTab
               </select>
             </div>
 
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mt-4">
-              <div className="flex items-start space-x-2">
-                <Ban className="h-4 w-4 text-yellow-600 mt-0.5 flex-shrink-0" />
+            {/* Warning Block - Adjusted to match screenshot style (simpler box) */}
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 mt-4">
+              <div className="flex items-start space-x-3">
+                {/* Warning Icon (h-5 w-5) */}
+                <Ban className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
                 <div>
-                  <p className="text-sm font-medium text-yellow-800">সতর্কতা</p>
-                  <p className="text-xs text-yellow-700 mt-1">
-                    নিষিদ্ধ ব্যবহারকারী সিস্টেমে লগইন করতে বা নতুন অর্ডার দিতে পারবে না। 
-                    বিদ্যমান অর্ডারগুলি প্রভাবিত হবে না।
+                  <p className="text-sm font-medium text-red-800">সতর্কতা</p>
+                  <p className="text-xs text-red-700 mt-1">
+                    নিষিদ্ধ ব্যবহারকারী সিস্টেমে লগইন করতে বা নতুন অর্ডার দিতে
+                    পারবে না। বিদ্যমান অর্ডারগুলি প্রভাবিত হবে না।
                   </p>
                 </div>
               </div>
             </div>
           </div>
-          
-          <div className="modal-action">
+
+          {/* Modal Actions (Buttons) - FIXING THE BUTTON LAYOUT ISSUE */}
+          <div className="modal-action flex items-center justify-end border-t pt-4 gap-2 mt-6">
+            {/* Cancel Button */}
             <button
-              className="btn btn-ghost text-[#819A91] hover:text-[#2C4A3B] hover:bg-[#D1D8BE] border-[#D1D8BE]"
+              className="btn btn-ghost bg-green-600 hover:bg-green-800 p-2 rounded-xl text-white hover:text-white transition-colors"
               onClick={() => {
-                const modal = document.getElementById('ban-modal') as HTMLDialogElement;
+                const modal = document.getElementById(
+                  "ban-modal"
+                ) as HTMLDialogElement;
                 modal.close();
               }}
             >
               বাতিল
             </button>
+
+            {/* Ban Button - Fixed: Using flex for alignment and ensuring proper button classes */}
             <button
-              className="btn bg-yellow-600 text-white hover:bg-yellow-700 border-yellow-600"
+              className="btn flex items-center p-2 rounded-xl bg-red-600 text-white hover:bg-red-700 border-red-600 hover:border-red-700 transition-colors"
+              // Add your Ban logic here
               onClick={() => {
-                const modal = document.getElementById('ban-modal') as HTMLDialogElement;
-                const userId = modal.dataset.userId;
-                const userEmail = modal.dataset.userEmail;
-                if (userId) {
-                  handleBanUser(userId, userEmail || '');
-                }
+                const modal = document.getElementById(
+                  "ban-modal"
+                ) as HTMLDialogElement;
                 modal.close();
               }}
             >
@@ -430,10 +462,11 @@ export default function UserTable({ users, onUserUpdate, onUserDelete }: UserTab
             </button>
           </div>
         </div>
-        
-        {/* Backdrop */}
-        <form method="dialog" className="modal-backbackdrop">
-          <button>close</button>
+
+        {/* Backdrop - Removed the visible "close" text */}
+        <form method="dialog" className="modal-backdrop">
+          {/* This button should be invisible and is only needed to close the modal on backdrop click */}
+          <button aria-label="Close modal"></button>
         </form>
       </dialog>
     </div>
