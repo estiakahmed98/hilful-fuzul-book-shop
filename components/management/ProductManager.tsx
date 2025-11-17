@@ -167,12 +167,12 @@ export default function ProductManager({
           <div className="flex items-center justify-center gap-3 mb-4">
             <div className="w-2 h-10 bg-gradient-to-b from-[#2C4A3B] to-[#819A91] rounded-full"></div>
             <h1 className="text-4xl font-bold bg-gradient-to-r from-[#2C4A3B] to-[#819A91] bg-clip-text text-transparent">
-              Product Management
+              পণ্য ব্যবস্থাপনা
             </h1>
             <div className="w-2 h-10 bg-gradient-to-b from-[#819A91] to-[#2C4A3B] rounded-full"></div>
           </div>
           <p className="text-gray-600 text-lg max-w-2xl mx-auto">
-            Manage all books, authors, publishers & categories with full control
+            সম্পূর্ণ নিয়ন্ত্রণের সাথে সমস্ত বই, লেখক, প্রকাশক এবং বিভাগ পরিচালনা করুন
           </p>
         </div>
 
