@@ -56,7 +56,9 @@ interface Shipment {
   expectedDate?: string | null;
   deliveredAt?: string | null;
   createdAt?: string | null;
+  updatedAt?: string | null; // ⬅️ এটা যোগ করো (cancelled case-এ ব্যবহার করেছো)
 }
+
 
 const formatDate = (date: string | null | undefined) => {
   if (!date) return "Processing...";
@@ -356,10 +358,7 @@ export default function OrderDetailsPage() {
       id: 4,
       label: "Delivered",
       description: "Order delivered to your address.",
-      dateLabel: formatDate(
-        shipment?.deliveredAt ||
-          (oStatus === "DELIVERED" ? order.createdAt : null)
-      ),
+      dateLabel: formatDate(shipment?.deliveredAt),
       icon: CheckCircle,
       color: "green",
     };
@@ -543,79 +542,85 @@ export default function OrderDetailsPage() {
               </div>
 
               <div className="space-y-6">
-                {stages.map((stage, index) => {
-                  const IconComponent = stage.icon;
+               {stages.map((stage, index) => {
+  const IconComponent = stage.icon;
 
-                  const isActive = index <= activeStageIndex;
-                  const isCurrent = index === activeStageIndex;
-                  const isCompleted = index < activeStageIndex;
+  const isActive = index <= activeStageIndex;
+  const isCurrent = index === activeStageIndex;
+  const isCompleted = index < activeStageIndex;
 
-                  const circleBase =
-                    "w-12 h-12 rounded-2xl border-2 flex items-center justify-center transition-all duration-300 group-hover:scale-110";
+  const circleBase =
+    "w-12 h-12 rounded-2xl border-2 flex items-center justify-center transition-all duration-300 group-hover:scale-110";
 
-                  const circleClass = isActive
-                    ? `${circleBase} ${getStatusColor(stage.color)}`
-                    : `${circleBase} bg-white border-gray-300`;
+  const circleClass = isActive
+    ? `${circleBase} ${getStatusColor(stage.color)}`
+    : `${circleBase} bg-white border-gray-300`;
 
-                  const iconClass = isActive
-                    ? `w-5 h-5 ${getIconColor(stage.color)}`
-                    : "w-5 h-5 text-gray-400";
+  const iconClass = isActive
+    ? `w-5 h-5 ${getIconColor(stage.color)}`
+    : "w-5 h-5 text-gray-400";
 
-                  let badgeText = "Pending";
-                  let badgeClass =
-                    "bg-gray-50 text-gray-600 border-gray-200";
+  // 🔹 এখানে extra logic: Delivered stage + status DELIVERED হলে সরাসরি Completed
+  const shipmentStatus = shipment?.status?.toUpperCase();
+  const orderStatus = order.status?.toUpperCase();
+  const isDeliveredStage = stage.label === "Delivered";
+  const isDeliveredFinal =
+    shipmentStatus === "DELIVERED" || orderStatus === "DELIVERED";
 
-                  if (isCompleted) {
-                    badgeText = "Completed";
-                    badgeClass =
-                      "bg-emerald-50 text-emerald-700 border-emerald-200";
-                  } else if (isCurrent && isActive) {
-                    badgeText = "In Progress";
-                    badgeClass =
-                      "bg-blue-50 text-blue-700 border-blue-200";
-                  }
+  let badgeText = "Pending";
+  let badgeClass = "bg-gray-50 text-gray-600 border-gray-200";
 
-                  return (
-                    <div key={stage.id} className="flex gap-6 group">
-                      {/* Timeline Line & Icon */}
-                      <div className="flex flex-col items-center">
-                        <div className={circleClass}>
-                          <IconComponent className={iconClass} />
-                        </div>
-                        {index !== stages.length - 1 && (
-                          <div className="flex-1 w-0.5 bg-gray-200 mt-2 mb-1" />
-                        )}
-                      </div>
+  if (isCompleted || (isDeliveredStage && isDeliveredFinal)) {
+    // আগের স্টেপগুলো + Delivered final স্টেপ = Completed
+    badgeText = "Completed";
+    badgeClass = "bg-emerald-50 text-emerald-700 border-emerald-200";
+  } else if (isCurrent && isActive) {
+    // মাঝের/current স্টেপগুলোতে In Progress
+    badgeText = "In Progress";
+    badgeClass = "bg-blue-50 text-blue-700 border-blue-200";
+  }
 
-                      {/* Content */}
-                      <div className="flex-1 pb-6">
-                        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-3">
-                          <div className="flex-1">
-                            <p className="font-semibold text-gray-900 mb-1">
-                              {stage.label}
-                            </p>
-                            <p className="text-gray-600 mb-2">
-                              {stage.description}
-                            </p>
-                            <div className="flex items-center gap-2 text-sm text-gray-500">
-                              <Calendar className="w-4 h-4" />
-                              <span>{stage.dateLabel}</span>
-                            </div>
-                          </div>
+  return (
+    <div key={stage.id} className="flex gap-6 group">
+      {/* Timeline Line & Icon */}
+      <div className="flex flex-col items-center">
+        <div className={circleClass}>
+          <IconComponent className={iconClass} />
+        </div>
+        {index !== stages.length - 1 && (
+          <div className="flex-1 w-0.5 bg-gray-200 mt-2 mb-1" />
+        )}
+      </div>
 
-                          <div
-                            className={`
-                              px-3 py-1 rounded-full text-xs font-medium border
-                              ${badgeClass}
-                            `}
-                          >
-                            {badgeText}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+      {/* Content */}
+      <div className="flex-1 pb-6">
+        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-3">
+          <div className="flex-1">
+            <p className="font-semibold text-gray-900 mb-1">
+              {stage.label}
+            </p>
+            <p className="text-gray-600 mb-2">
+              {stage.description}
+            </p>
+            <div className="flex items-center gap-2 text-sm text-gray-500">
+              <Calendar className="w-4 h-4" />
+              <span>{stage.dateLabel}</span>
+            </div>
+          </div>
+
+          <div
+            className={`
+              px-3 py-1 rounded-full text-xs font-medium border
+              ${badgeClass}
+            `}
+          >
+            {badgeText}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+})}
               </div>
             </Card>
 

@@ -1,11 +1,1141 @@
 "use client";
 
-const Page = () => {
+import { useEffect, useMemo, useState } from "react";
+
+type OrderStatusType =
+  | "PENDING"
+  | "PROCESSING"
+  | "SHIPPED"
+  | "DELIVERED"
+  | "CANCELLED";
+
+type PaymentStatusType = "PAID" | "UNPAID";
+
+type ShipmentStatusType =
+  | "PENDING"
+  | "IN_TRANSIT"
+  | "OUT_FOR_DELIVERY"
+  | "DELIVERED"
+  | "RETURNED"
+  | "CANCELLED";
+
+interface OrderItem {
+  id: number;
+  quantity: number;
+  price: number;
+  product?: {
+    id: number;
+    name: string;
+  };
+}
+
+interface Order {
+  id: number;
+  name: string | null;
+  email?: string | null;
+  phone_number: string | null;
+  alt_phone_number?: string | null;
+  country: string;
+  district: string;
+  area: string;
+  address_details: string;
+  payment_method: string;
+  total: number;
+  shipping_cost: number;
+  grand_total: number;
+  status: OrderStatusType;
+  paymentStatus: PaymentStatusType;
+  transactionId?: string | null;
+  image?: string | null; // 🔹 payment screenshot URL
+  createdAt: string;
+  orderItems?: OrderItem[];
+  user?: {
+    id: string;
+    name?: string | null;
+  };
+}
+
+interface Shipment {
+  id: number;
+  orderId: number;
+  courier: string;
+  trackingNumber?: string | null;
+  status: ShipmentStatusType;
+  shippedAt?: string | null;
+  expectedDate?: string | null;
+  deliveredAt?: string | null;
+  createdAt?: string;
+}
+
+const OrderManagement = () => {
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [pagination, setPagination] = useState<any | null>(null);
+  const [page, setPage] = useState(1);
+  const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // details modal states
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
+  const [orderDetail, setOrderDetail] = useState<Order | null>(null);
+  const [shipment, setShipment] = useState<Shipment | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  // editable fields (order)
+  const [editOrderStatus, setEditOrderStatus] =
+    useState<OrderStatusType>("PENDING");
+  const [editPaymentStatus, setEditPaymentStatus] =
+    useState<PaymentStatusType>("UNPAID");
+  const [editTransactionId, setEditTransactionId] = useState<string>("");
+
+  // editable fields (shipment)
+  const [editCourier, setEditCourier] = useState("");
+  const [editTrackingNumber, setEditTrackingNumber] = useState("");
+  const [editShipmentStatus, setEditShipmentStatus] =
+    useState<ShipmentStatusType>("PENDING");
+  const [editExpectedDate, setEditExpectedDate] = useState<string>("");
+  const [editDeliveredDate, setEditDeliveredDate] = useState<string>("");
+
+  // ------------------- ORDER LIST -------------------
+
+  useEffect(() => {
+    const fetchOrders = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        let url = `/api/orders?page=${page}&limit=9`;
+        if (statusFilter !== "ALL") {
+          url += `&status=${statusFilter}`;
+        }
+
+        const res = await fetch(url, { cache: "no-store" });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data?.error || "Something went wrong");
+        }
+
+        const data = await res.json();
+        setOrders(data.orders || []);
+        setPagination(data.pagination || null);
+      } catch (err: any) {
+        setError(err?.message || "Failed to load orders");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOrders();
+  }, [page, statusFilter]);
+
+  const filteredOrders = useMemo(() => {
+    if (!search) return orders;
+    const term = search.toLowerCase();
+    return orders.filter((o) => {
+      return (
+        o.name?.toLowerCase().includes(term) ||
+        o.phone_number?.toLowerCase().includes(term) ||
+        String(o.id).toLowerCase().includes(term)
+      );
+    });
+  }, [orders, search]);
+
+  const totalOrders = pagination?.total ?? orders.length;
+
+  const pageTotalAmount = useMemo(
+    () =>
+      filteredOrders.reduce(
+        (sum, o) => sum + Number(o.grand_total ?? o.total ?? 0),
+        0
+      ),
+    [filteredOrders]
+  );
+
+  // ------------------- HELPERS -------------------
+
+  const statusBadgeClass = (status: string) => {
+    switch (status) {
+      case "PENDING":
+        return "bg-yellow-100 text-yellow-700";
+      case "PROCESSING":
+        return "bg-blue-100 text-blue-700";
+      case "SHIPPED":
+        return "bg-indigo-100 text-indigo-700";
+      case "DELIVERED":
+        return "bg-emerald-100 text-emerald-700";
+      case "CANCELLED":
+        return "bg-red-100 text-red-700";
+      default:
+        return "bg-gray-100 text-gray-700";
+    }
+  };
+
+  const paymentBadgeClass = (status: string) => {
+    return status === "PAID"
+      ? "bg-emerald-100 text-emerald-700"
+      : "bg-red-100 text-red-700";
+  };
+
+  const shipmentBadgeClass = (status: ShipmentStatusType) => {
+    switch (status) {
+      case "PENDING":
+        return "bg-yellow-100 text-yellow-700";
+      case "IN_TRANSIT":
+      case "OUT_FOR_DELIVERY":
+        return "bg-blue-100 text-blue-700";
+      case "DELIVERED":
+        return "bg-emerald-100 text-emerald-700";
+      case "RETURNED":
+      case "CANCELLED":
+        return "bg-red-100 text-red-700";
+      default:
+        return "bg-gray-100 text-gray-700";
+    }
+  };
+
+  const formatDate = (dateStr?: string | null) => {
+    if (!dateStr) return "-";
+    const d = new Date(dateStr);
+    if (Number.isNaN(d.getTime())) return "-";
+    return d.toLocaleString("bn-BD", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+  };
+
+  // ------------------- DETAILS MODAL LOGIC -------------------
+
+  const openDetails = (id: number) => {
+    setSelectedOrderId(id);
+    setDetailOpen(true);
+  };
+
+  useEffect(() => {
+    if (!detailOpen || !selectedOrderId) return;
+
+    const loadDetails = async () => {
+      try {
+        setDetailLoading(true);
+        setDetailError(null);
+
+        // 1) Order details
+        const orderRes = await fetch(`/api/orders/${selectedOrderId}`, {
+          cache: "no-store",
+        });
+        if (!orderRes.ok) {
+          const data = await orderRes.json().catch(() => ({}));
+          throw new Error(data?.error || "Order load failed");
+        }
+        const orderData: Order = await orderRes.json();
+        setOrderDetail(orderData);
+
+        // init editable fields
+        setEditOrderStatus(orderData.status);
+        setEditPaymentStatus(orderData.paymentStatus);
+        setEditTransactionId(orderData.transactionId || "");
+
+        // 2) Shipment (if any) -> use /api/shipments?orderId=...
+        const shipRes = await fetch(
+          `/api/shipments?orderId=${selectedOrderId}&limit=1&page=1`,
+          { cache: "no-store" }
+        );
+
+        if (shipRes.ok) {
+          const sd = await shipRes.json();
+          const found: Shipment | undefined = sd.shipments?.[0];
+          if (found) {
+            setShipment(found);
+            setEditCourier(found.courier || "");
+            setEditTrackingNumber(found.trackingNumber || "");
+            setEditShipmentStatus(found.status);
+            setEditExpectedDate(
+              found.expectedDate
+                ? new Date(found.expectedDate)
+                    .toISOString()
+                    .substring(0, 10)
+                : ""
+            );
+            setEditDeliveredDate(
+              found.deliveredAt
+                ? new Date(found.deliveredAt)
+                    .toISOString()
+                    .substring(0, 10)
+                : ""
+            );
+          } else {
+            setShipment(null);
+            setEditCourier("");
+            setEditTrackingNumber("");
+            setEditShipmentStatus("PENDING");
+            setEditExpectedDate("");
+            setEditDeliveredDate("");
+          }
+        } else if (shipRes.status === 404) {
+          setShipment(null);
+          setEditCourier("");
+          setEditTrackingNumber("");
+          setEditShipmentStatus("PENDING");
+          setEditExpectedDate("");
+          setEditDeliveredDate("");
+        } else {
+          setShipment(null);
+        }
+      } catch (err: any) {
+        setDetailError(err?.message || "Failed to load details");
+      } finally {
+        setDetailLoading(false);
+      }
+    };
+
+    loadDetails();
+  }, [detailOpen, selectedOrderId]);
+
+  const handleCloseDetail = () => {
+    setDetailOpen(false);
+    setSelectedOrderId(null);
+    setOrderDetail(null);
+    setShipment(null);
+    setDetailError(null);
+  };
+
+  // ---- SAVE: ORDER ----
+  const saveOrderMeta = async () => {
+    if (!orderDetail) return;
+
+    try {
+      setSaving(true);
+      const res = await fetch(`/api/orders/${orderDetail.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          status: editOrderStatus,
+          paymentStatus: editPaymentStatus,
+          transactionId: editTransactionId || null,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.error || "Order update failed");
+      }
+
+      // UI sync
+      setOrderDetail((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: editOrderStatus,
+              paymentStatus: editPaymentStatus,
+              transactionId: editTransactionId || null,
+            }
+          : prev
+      );
+
+      // list এর মধ্যে থাকা মূল order আপডেট করি
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.id === orderDetail.id
+            ? {
+                ...o,
+                status: editOrderStatus,
+                paymentStatus: editPaymentStatus,
+              }
+            : o
+        )
+      );
+      alert("অর্ডার স্ট্যাটাস আপডেট হয়েছে ✅");
+    } catch (err: any) {
+      alert(err?.message || "Order update failed");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // ---- SAVE: SHIPMENT ----
+  const saveShipment = async () => {
+    if (!orderDetail) return;
+
+    try {
+      setSaving(true);
+
+      let savedShipment: Shipment | null = shipment;
+
+      // যদি shipment already থাকে -> PATCH
+      if (shipment) {
+        const res = await fetch(`/api/shipments/${shipment.id}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            courier: editCourier,
+            trackingNumber: editTrackingNumber || null,
+            status: editShipmentStatus,
+            expectedDate: editExpectedDate || null,
+            deliveredAt: editDeliveredDate || null,
+          }),
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(data?.error || "Shipment update failed");
+        }
+
+        savedShipment = {
+          ...shipment,
+          courier: editCourier,
+          trackingNumber: editTrackingNumber || null,
+          status: editShipmentStatus,
+          expectedDate: editExpectedDate || null,
+          deliveredAt: editDeliveredDate || null,
+        };
+
+        setShipment(savedShipment);
+        alert("শিপমেন্ট তথ্য আপডেট হয়েছে ✅");
+      } else {
+        // otherwise -> POST (নতুন shipment)
+        const res = await fetch("/api/shipments", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            orderId: orderDetail.id,
+            courier: editCourier,
+            trackingNumber: editTrackingNumber || undefined,
+            status: editShipmentStatus,
+            expectedDate: editExpectedDate || undefined,
+            deliveredAt: editDeliveredDate || undefined,
+          }),
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(data?.error || "Shipment create failed");
+        }
+
+        savedShipment = data as Shipment;
+        setShipment(savedShipment);
+        alert("নতুন শিপমেন্ট তৈরি হয়েছে ✅");
+      }
+
+      // 🔥 যদি shipment status DELIVERED হয় -> order status-ও DELIVERED করে দাও
+      if (editShipmentStatus === "DELIVERED") {
+        try {
+          const orderRes = await fetch(`/api/orders/${orderDetail.id}`, {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              status: "DELIVERED", // শুধু status, paymentStatus টাচ করছি না
+            }),
+          });
+
+          const orderData = await orderRes.json().catch(() => ({}));
+
+          if (!orderRes.ok) {
+            console.warn("Order status auto DELIVERED failed:", orderData);
+          } else {
+            setOrderDetail((prev) =>
+              prev ? { ...prev, status: "DELIVERED" } : prev
+            );
+            setOrders((prev) =>
+              prev.map((o) =>
+                o.id === orderDetail.id ? { ...o, status: "DELIVERED" } : o
+              )
+            );
+          }
+        } catch (e) {
+          console.warn("Order auto-update error:", e);
+        }
+      }
+    } catch (err: any) {
+      alert(err?.message || "Shipment save failed");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // ------------------- RENDER -------------------
+
   return (
-    <div className="flex h-screen w-full justify-center text-5xl">
-      Order Management
+    <div className="min-h-screen w-full bg-[#F4F7ED] px-4 py-10">
+      <div className="mx-auto flex max-w-6xl flex-col gap-8">
+        {/* Heading */}
+        <div className="text-center">
+          <h1 className="text-3xl font-semibold text-[#1D3B2A]">
+            | অর্ডার ব্যবস্থাপনা |
+          </h1>
+          <p className="mt-2 text-sm text-gray-600">
+            আপনার লাইব্রেরির সকল অর্ডার দেখুন, স্ট্যাটাস আপডেট করুন এবং
+            শিপমেন্ট ট্র্যাক করুন
+          </p>
+        </div>
+
+        {/* Top stats + search row */}
+        <div className="flex flex-col gap-4 md:flex-row">
+          {/* মোট অর্ডার */}
+          <div className="flex w-full items-center justify-between rounded-2xl bg-white px-6 py-4 shadow-sm md:w-1/4">
+            <div>
+              <p className="text-xs text-gray-500">মোট অর্ডার</p>
+              <p className="mt-1 text-2xl font-semibold text-gray-800">
+                {totalOrders}
+              </p>
+            </div>
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#1D3B2A] text-white">
+              <svg
+                className="h-6 w-6"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+              >
+                <path
+                  d="M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                />
+                <circle
+                  cx="9"
+                  cy="7"
+                  r="3"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                />
+                <path
+                  d="M22 21v-2a4 4 0 0 0-3-3.87"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                />
+                <path
+                  d="M16 3.13a3 3 0 0 1 0 5.76"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </div>
+          </div>
+
+          {/* মোট টাকা (এই পাতার) */}
+          <div className="flex w-full items-center justify-between rounded-2xl bg-white px-6 py-4 shadow-sm md:w-1/4">
+            <div>
+              <p className="text-xs text-gray-500">এই পাতার মোট টাকা</p>
+              <p className="mt-1 text-2xl font-semibold text-gray-800">
+                ৳ {pageTotalAmount.toLocaleString("bn-BD")}
+              </p>
+            </div>
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#1D3B2A] text-white">
+              <svg
+                className="h-6 w-6"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+              >
+                <rect
+                  x="3"
+                  y="5"
+                  width="18"
+                  height="14"
+                  rx="2"
+                  strokeWidth="1.8"
+                />
+                <circle cx="12" cy="12" r="3" strokeWidth="1.8" />
+              </svg>
+            </div>
+          </div>
+
+          {/* search + status filter */}
+          <div className="flex flex-1 items-center gap-4 rounded-2xl bg-white px-6 py-4 shadow-sm">
+            <div className="flex flex-1 items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-4 py-2">
+              <svg
+                className="h-4 w-4 text-gray-400"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+              >
+                <circle cx="11" cy="11" r="6" strokeWidth="1.6" />
+                <path
+                  d="M16 16l4 4"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                />
+              </svg>
+              <input
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+                placeholder="অর্ডার আইডি, নাম বা মোবাইল দিয়ে খুঁজুন..."
+                className="flex-1 bg-transparent text-sm outline-none placeholder:text-gray-400"
+              />
+            </div>
+
+            <select
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                setPage(1);
+              }}
+              className="rounded-full border border-gray-200 bg-[#1D3B2A] px-4 py-2 text-sm text-white shadow-sm"
+            >
+              <option value="ALL">সব স্ট্যাটাস</option>
+              <option value="PENDING">Pending</option>
+              <option value="PROCESSING">Processing</option>
+              <option value="SHIPPED">Shipped</option>
+              <option value="DELIVERED">Delivered</option>
+              <option value="CANCELLED">Cancelled</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Loading / Error */}
+        {loading && (
+          <div className="mt-6 text-center text-sm text-gray-600">
+            লোড হচ্ছে...
+          </div>
+        )}
+        {error && (
+          <div className="mt-6 rounded-xl bg-red-50 px-4 py-3 text-center text-sm text-red-600">
+            {error}
+          </div>
+        )}
+
+        {/* Order cards */}
+        {!loading && !error && (
+          <>
+            {filteredOrders.length === 0 ? (
+              <div className="mt-8 text-center text-sm text-gray-500">
+                কোন অর্ডার পাওয়া যায়নি।
+              </div>
+            ) : (
+              <div className="mt-6 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {filteredOrders.map((order) => (
+                  <div
+                    key={order.id}
+                    className="overflow-hidden rounded-2xl bg-white shadow-sm"
+                  >
+                    <div className="h-24 bg-gradient-to-r from-[#1D3B2A]/80 to-[#3C6B4A]/80"></div>
+
+                    <div className="-mt-10 px-5 pb-5">
+                      {/* avatar circle */}
+                      <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gray-100 shadow-md">
+                        <span className="text-3xl font-semibold text-gray-500">
+                          {order.name?.[0]?.toUpperCase() || "O"}
+                        </span>
+                      </div>
+
+                      <div className="mt-3">
+                        <h3 className="text-lg font-semibold text-gray-800">
+                          {order.name || "নাম নেই"}
+                        </h3>
+                        <p className="mt-1 text-xs text-gray-500">
+                          অর্ডার আইডি:{" "}
+                          <span className="font-medium">{order.id}</span>
+                        </p>
+                        <p className="mt-1 text-xs text-gray-500">
+                          মোবাইল:{" "}
+                          <span className="font-medium">
+                            {order.phone_number || "-"}
+                          </span>
+                        </p>
+                        <p className="mt-1 text-xs text-gray-500">
+                          তারিখ:{" "}
+                          <span className="font-medium">
+                            {formatDate(order.createdAt)}
+                          </span>
+                        </p>
+                      </div>
+
+                      {/* totals */}
+                      <div className="mt-3 rounded-xl bg-gray-50 px-3 py-2 text-xs text-gray-700">
+                        <div className="flex items-center justify-between">
+                          <span>মোট পণ্যের সংখ্যা</span>
+                          <span className="font-semibold">
+                            {order.orderItems?.reduce(
+                              (sum, item) =>
+                                sum + Number(item.quantity || 0),
+                              0
+                            ) || 0}
+                          </span>
+                        </div>
+                        <div className="mt-1 flex items-center justify-between">
+                          <span>গ্র্যান্ড টোটাল</span>
+                          <span className="font-semibold">
+                            ৳{" "}
+                            {Number(order.grand_total ?? 0).toLocaleString(
+                              "bn-BD"
+                            )}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* status badges */}
+                      <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px]">
+                        <span
+                          className={`rounded-full px-3 py-1 font-semibold ${statusBadgeClass(
+                            order.status
+                          )}`}
+                        >
+                          স্ট্যাটাস: {order.status}
+                        </span>
+                        <span
+                          className={`rounded-full px-3 py-1 font-semibold ${paymentBadgeClass(
+                            order.paymentStatus
+                          )}`}
+                        >
+                          পেমেন্ট: {order.paymentStatus}
+                        </span>
+                      </div>
+
+                      {/* actions */}
+                      <div className="mt-4 flex items-center gap-3">
+                        <button
+                          type="button"
+                          className="flex-1 rounded-full bg-[#1D3B2A] px-4 py-2 text-xs font-medium text-white transition hover:bg-[#152a1f]"
+                          onClick={() => openDetails(order.id)}
+                        >
+                          বিস্তারিত
+                        </button>
+                        <button
+                          type="button"
+                          className="rounded-full border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600"
+                          disabled
+                        >
+                          ডিলিট
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* pagination */}
+            {pagination && pagination.pages > 1 && (
+              <div className="mt-8 flex items-center justify-center gap-4 text-sm">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="rounded-full bg-white px-4 py-2 text-gray-700 shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  পূর্বের
+                </button>
+                <span className="text-gray-600">
+                  পেজ {page} / {pagination.pages}
+                </span>
+                <button
+                  onClick={() =>
+                    setPage((p) =>
+                      pagination ? Math.min(pagination.pages, p + 1) : p + 1
+                    )
+                  }
+                  disabled={page === pagination.pages}
+                  className="rounded-full bg-white px-4 py-2 text-gray-700 shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  পরের
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* ------------- DETAILS MODAL ------------- */}
+      {detailOpen && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="relative max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-3xl bg-white shadow-xl">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b px-6 py-4">
+              <div>
+                <h2 className="text-lg font-semibold text-[#1D3B2A]">
+                  অর্ডার বিস্তারিত
+                </h2>
+                {orderDetail && (
+                  <p className="text-xs text-gray-500">
+                    অর্ডার আইডি: {orderDetail.id} •{" "}
+                    {formatDate(orderDetail.createdAt)}
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={handleCloseDetail}
+                className="rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-700 hover:bg-gray-200"
+              >
+                বন্ধ করুন ✕
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="max-h-[70vh] overflow-y-auto px-6 py-4">
+              {detailLoading && (
+                <div className="py-8 text-center text-sm text-gray-600">
+                  বিস্তারিত লোড হচ্ছে...
+                </div>
+              )}
+
+              {detailError && (
+                <div className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
+                  {detailError}
+                </div>
+              )}
+
+              {!detailLoading && orderDetail && (
+                <div className="space-y-5 text-sm">
+                  {/* 1. Customer + Address */}
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="rounded-2xl bg-gray-50 p-4">
+                      <h3 className="mb-2 text-xs font-semibold text-gray-500">
+                        গ্রাহকের তথ্য
+                      </h3>
+                      <p className="text-sm font-semibold text-gray-800">
+                        {orderDetail.name || "নাম নেই"}
+                      </p>
+                      <p className="mt-1 text-xs text-gray-600">
+                        মোবাইল: {orderDetail.phone_number || "-"}
+                      </p>
+                      {orderDetail.alt_phone_number && (
+                        <p className="mt-1 text-xs text-gray-600">
+                          বিকল্প মোবাইল: {orderDetail.alt_phone_number}
+                        </p>
+                      )}
+                      {orderDetail.email && (
+                        <p className="mt-1 text-xs text-gray-600">
+                          ইমেইল: {orderDetail.email}
+                        </p>
+                      )}
+                      <p className="mt-2 text-xs text-gray-600">
+                        পেমেন্ট মেথড:{" "}
+                        <span className="font-medium">
+                          {orderDetail.payment_method}
+                        </span>
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl bg-gray-50 p-4">
+                      <h3 className="mb-2 text-xs font-semibold text-gray-500">
+                        ডেলিভারি ঠিকানা
+                      </h3>
+                      <p className="text-xs text-gray-700">
+                        {orderDetail.address_details}
+                      </p>
+                      <p className="mt-1 text-xs text-gray-600">
+                        এলাকা: {orderDetail.area}
+                      </p>
+                      <p className="mt-1 text-xs text-gray-600">
+                        জেলা: {orderDetail.district}
+                      </p>
+                      <p className="mt-1 text-xs text-gray-600">
+                        দেশ: {orderDetail.country}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* 1.5 Payment Screenshot (image from orders API) */}
+                  {orderDetail.image && (
+                    <div className="rounded-2xl bg-gray-50 p-4">
+                      <h3 className="mb-3 text-xs font-semibold text-gray-500">
+                        পেমেন্ট স্ক্রিনশট
+                      </h3>
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                        <div className="w-full max-w-xs overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={orderDetail.image}
+                            alt="Payment screenshot"
+                            className="h-full w-full max-h-72 object-contain bg-gray-50"
+                          />
+                        </div>
+                        <div className="text-xs text-gray-600 space-y-2">
+                          <p>
+                            গ্রাহক পেমেন্ট করার পর এই স্ক্রিনশট আপলোড করেছেন।
+                            প্রয়োজন হলে নিচের বাটন থেকে নতুন ট্যাবে বড় করে দেখতে
+                            পারবেন।
+                          </p>
+                          <a
+                            href={orderDetail.image}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center rounded-full bg-[#1D3B2A] px-4 py-2 text-[11px] font-medium text-white hover:bg-[#152a1f]"
+                          >
+                            স্ক্রিনশট বড় করে দেখুন
+                            <svg
+                              className="ml-1 h-3 w-3"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                            >
+                              <path
+                                d="M14 3h7v7"
+                                strokeWidth="1.6"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                              <path
+                                d="M10 14L21 3"
+                                strokeWidth="1.6"
+                                strokeLinecap="round"
+                              />
+                              <path
+                                d="M5 5h5M5 5v5M5 19h5M5 19v-5M19 19h-5M19 19v-5"
+                                strokeWidth="1.4"
+                                strokeLinecap="round"
+                              />
+                            </svg>
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 2. Items */}
+                  <div className="rounded-2xl bg-gray-50 p-4">
+                    <h3 className="mb-3 text-xs font-semibold text-gray-500">
+                      অর্ডারের বইসমূহ
+                    </h3>
+                    <div className="space-y-2">
+                      {orderDetail.orderItems?.map((item) => (
+                        <div
+                          key={item.id}
+                          className="flex items-center justify-between rounded-xl bg_WHITE px-3 py-2 text-xs bg-white"
+                        >
+                          <div>
+                            <p className="font-semibold text-gray-800">
+                              {item.product?.name || "পণ্যের নাম নেই"}
+                            </p>
+                            <p className="mt-0.5 text-[11px] text-gray-500">
+                              Qty: {item.quantity} × ৳{" "}
+                              {Number(item.price).toLocaleString("bn-BD")}
+                            </p>
+                          </div>
+                          <p className="text-[11px] font-semibold text-gray-800">
+                            ৳{" "}
+                            {Number(item.quantity * item.price).toLocaleString(
+                              "bn-BD"
+                            )}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-3 border-t pt-2 text-xs text-gray-700">
+                      <div className="flex justify_between">
+                        <span>Subtotal</span>
+                        <span>
+                          ৳ {Number(orderDetail.total).toLocaleString("bn-BD")}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Shipping</span>
+                        <span>
+                          ৳{" "}
+                          {Number(
+                            orderDetail.shipping_cost
+                          ).toLocaleString("bn-BD")}
+                        </span>
+                      </div>
+                      <div className="mt-1 flex justify-between font-semibold">
+                        <span>Grand Total</span>
+                        <span>
+                          ৳{" "}
+                          {Number(
+                            orderDetail.grand_total
+                          ).toLocaleString("bn-BD")}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 3. Order meta (status, payment, transaction) */}
+                  <div className="rounded-2xl bg-gray-50 p-4">
+                    <h3 className="mb-3 text-xs font-semibold text-gray-500">
+                      অর্ডার স্ট্যাটাস
+                    </h3>
+                    <div className="grid gap-3 md:grid-cols-3">
+                      <div className="space-y-1 text-xs">
+                        <p className="text-gray-600">Order Status</p>
+                        <select
+                          value={editOrderStatus}
+                          onChange={(e) =>
+                            setEditOrderStatus(
+                              e.target.value as OrderStatusType
+                            )
+                          }
+                          className="w-full rounded-xl border border-gray-200 bg_WHITE px-2 py-2 text-xs bg-white"
+                        >
+                          <option value="PENDING">PENDING</option>
+                          <option value="PROCESSING">PROCESSING</option>
+                          <option value="SHIPPED">SHIPPED</option>
+                          <option value="DELIVERED">DELIVERED</option>
+                          <option value="CANCELLED">CANCELLED</option>
+                        </select>
+                      </div>
+                      <div className="space-y-1 text-xs">
+                        <p className="text-gray-600">Payment Status</p>
+                        <select
+                          value={editPaymentStatus}
+                          onChange={(e) =>
+                            setEditPaymentStatus(
+                              e.target.value as PaymentStatusType
+                            )
+                          }
+                          className="w-full rounded-xl border border-gray-200 bg_WHITE px-2 py-2 text-xs bg-white"
+                        >
+                          <option value="PAID">PAID</option>
+                          <option value="UNPAID">UNPAID</option>
+                        </select>
+                      </div>
+                      <div className="space-y-1 text-xs">
+                        <p className="text-gray-600">Transaction ID</p>
+                        <input
+                          value={editTransactionId}
+                          onChange={(e) =>
+                            setEditTransactionId(e.target.value)
+                          }
+                          placeholder="Bkash/Nagad txn id..."
+                          className="w-full rounded-xl border border-gray-200 bg_WHITE px-3 py-2 text-xs outline-none bg-white"
+                        />
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={saveOrderMeta}
+                      disabled={saving}
+                      className="mt-3 rounded-full bg-[#1D3B2A] px-4 py-2 text-xs font-medium text_WHITE hover:bg-[#152a1f] disabled:opacity-60 text-white"
+                    >
+                      {saving ? "সেভ হচ্ছে..." : "অর্ডার আপডেট করুন"}
+                    </button>
+                    <p className="mt-1 text-[10px] text-gray-500">
+                      * এই অপশনগুলো শুধু admin সফলভাবে আপডেট করতে পারবে।
+                    </p>
+                  </div>
+
+                  {/* 4. Shipment */}
+                  <div className="rounded-2xl bg-gray-50 p-4">
+                    <div className="mb-2 flex items-center justify-between">
+                      <h3 className="text-xs font-semibold text-gray-500">
+                        শিপমেন্ট স্ট্যাটাস
+                      </h3>
+                      {shipment && (
+                        <span
+                          className={`rounded-full px-3 py-1 text-[11px] font-semibold ${shipmentBadgeClass(
+                            shipment.status
+                          )}`}
+                        >
+                          বর্তমান: {shipment.status}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* যদি shipment না থাকে -> info */}
+                    {!shipment && (
+                      <p className="mb-3 text-[11px] text-gray-500">
+                        এই অর্ডারের জন্য এখনো কোন shipment তৈরি হয়নি। নিচের
+                        ফর্ম পূরণ করে নতুন shipment create করতে পারবেন।
+                      </p>
+                    )}
+
+                    <div className="grid gap-3 md:grid-cols-3">
+                      <div className="space-y-1 text-xs">
+                        <p className="text-gray-600">Courier</p>
+                        <input
+                          value={editCourier}
+                          onChange={(e) => setEditCourier(e.target.value)}
+                          placeholder="SA Paribahan / Sundarban..."
+                          className="w-full rounded-xl border border-gray-200 bg_WHITE px-3 py-2 text-xs outline-none bg-white"
+                        />
+                      </div>
+                      <div className="space-y-1 text-xs">
+                        <p className="text-gray-600">Tracking Number</p>
+                        <input
+                          value={editTrackingNumber}
+                          onChange={(e) =>
+                            setEditTrackingNumber(e.target.value)
+                          }
+                          placeholder="tracking no..."
+                          className="w-full rounded-xl border border-gray-200 bg_WHITE px-3 py-2 text-xs outline-none bg-white"
+                        />
+                      </div>
+                      <div className="space-y-1 text-xs">
+                        <p className="text-gray-600">Shipment Status</p>
+                        <select
+                          value={editShipmentStatus}
+                          onChange={(e) =>
+                            setEditShipmentStatus(
+                              e.target.value as ShipmentStatusType
+                            )
+                          }
+                          className="w-full rounded-xl border border-gray-200 bg_WHITE px-2 py-2 text-xs bg-white"
+                        >
+                          <option value="PENDING">PENDING</option>
+                          <option value="IN_TRANSIT">IN_TRANSIT</option>
+                          <option value="OUT_FOR_DELIVERY">
+                            OUT_FOR_DELIVERY
+                          </option>
+                          <option value="DELIVERED">DELIVERED</option>
+                          <option value="RETURNED">RETURNED</option>
+                          <option value="CANCELLED">CANCELLED</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 grid gap-3 md:grid-cols-3">
+                      <div className="space-y-1 text-xs">
+                        <p className="text-gray-600">Expected Date</p>
+                        <input
+                          type="date"
+                          value={editExpectedDate}
+                          onChange={(e) => setEditExpectedDate(e.target.value)}
+                          className="w-full rounded-xl border border-gray-200 bg_WHITE px-3 py-2 text-xs outline-none bg-white"
+                        />
+                      </div>
+                      <div className="space-y-1 text-xs">
+                        <p className="text-gray-600">Delivered Date</p>
+                        <input
+                          type="date"
+                          value={editDeliveredDate}
+                          onChange={(e) =>
+                            setEditDeliveredDate(e.target.value)
+                          }
+                          className="w-full rounded-xl border border-gray-200 bg_WHITE px-3 py-2 text-xs outline-none bg-white"
+                        />
+                      </div>
+                      {shipment && (
+                        <div className="space-y-1 text-xs text-gray-600">
+                          <p>Created At</p>
+                          <p className="rounded-xl bg-white px-3 py-2 text-[11px]">
+                            {formatDate(shipment.createdAt || "")}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={saveShipment}
+                      disabled={saving}
+                      className="mt-3 rounded-full bg-[#1D3B2A] px-4 py-2 text-xs font-medium text_WHITE hover:bg-[#152a1f] disabled:opacity-60 text-white"
+                    >
+                      {saving
+                        ? "সেভ হচ্ছে..."
+                        : shipment
+                        ? "শিপমেন্ট আপডেট করুন"
+                        : "নতুন শিপমেন্ট তৈরি করুন"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
-export default Page;
+export default OrderManagement;
