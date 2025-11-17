@@ -16,11 +16,7 @@ interface ProfileData {
   address: any | null;
 }
 
-interface AddressItem {
-  label: string;
-  line1: string;
-  line2: string;
-}
+// Address is now a simple string array
 
 export default function UserProfilePage() {
   const { data: session } = useSession();
@@ -34,7 +30,7 @@ export default function UserProfilePage() {
   const [phone, setPhone] = useState("");
   const [image, setImage] = useState("");
   const [note, setNote] = useState("");
-  const [addresses, setAddresses] = useState<AddressItem[]>([]);
+  const [addresses, setAddresses] = useState<string[]>(['']);
   const [uploadingImage, setUploadingImage] = useState(false);
 
   useEffect(() => {
@@ -53,24 +49,39 @@ export default function UserProfilePage() {
         setImage(data.image ?? "");
         setNote(data.note ?? "");
 
-        if (Array.isArray(data.address)) {
-          setAddresses(
-            data.address.map((a: any) => ({
-              label: a.label ?? "",
-              line1: a.line1 ?? "",
-              line2: a.line2 ?? "",
-            }))
-          );
-        } else if (data.address && typeof data.address === "object") {
-          setAddresses([
-            {
-              label: (data.address as any).label ?? "",
-              line1: (data.address as any).line1 ?? "",
-              line2: (data.address as any).line2 ?? "",
-            },
-          ]);
+        if (data.address) {
+          if (Array.isArray(data.address)) {
+            // If it's an array of address objects, join the parts
+            const formattedAddresses = data.address
+              .map((a: any) => {
+                if (typeof a === 'string') return a;
+                const parts = [];
+                if (a.label) parts.push(a.label);
+                if (a.line1) parts.push(a.line1);
+                if (a.line2) parts.push(a.line2);
+                return parts.join(", ");
+              })
+              .filter((a: string) => a.trim() !== "");
+            setAddresses(formattedAddresses.length > 0 ? formattedAddresses : [""]);
+          } else if (typeof data.address === "object") {
+            // If it's a single address object
+            const addr = data.address as any;
+            if (addr.addresses && Array.isArray(addr.addresses)) {
+              setAddresses(addr.addresses.length > 0 ? [...addr.addresses, ""] : [""]);
+            } else {
+              const parts = [];
+              if (addr.label) parts.push(addr.label);
+              if (addr.line1) parts.push(addr.line1);
+              if (addr.line2) parts.push(addr.line2);
+              setAddresses(parts.length > 0 ? [parts.join(", "), ""] : [""]);
+            }
+          } else if (typeof data.address === "string") {
+            setAddresses([data.address, ""]);
+          } else {
+            setAddresses([""]);
+          }
         } else {
-          setAddresses([]);
+          setAddresses([""]);
         }
       } catch (err: any) {
         setError(err.message || "কিছু ভুল হয়েছে");
@@ -89,12 +100,14 @@ export default function UserProfilePage() {
     setSuccess(null);
 
     const cleanedAddresses = addresses
-      .map((addr) => ({
-        label: addr.label.trim(),
-        line1: addr.line1.trim(),
-        line2: addr.line2.trim(),
-      }))
-      .filter((addr) => addr.label || addr.line1 || addr.line2);
+      .map(addr => addr.trim())
+      .filter(addr => addr.length > 0);
+
+    if (cleanedAddresses.length === 0) {
+      setError("কমপক্ষে একটি ঠিকানা দিন");
+      setSaving(false);
+      return;
+    }
 
     try {
       const res = await fetch("/api/user/profile", {
@@ -105,7 +118,9 @@ export default function UserProfilePage() {
           phone,
           image,
           note,
-          address: cleanedAddresses.length > 0 ? cleanedAddresses : null,
+          address: {
+            addresses: cleanedAddresses
+          },
         }),
       });
 
@@ -126,24 +141,25 @@ export default function UserProfilePage() {
   const userEmail = session?.user?.email || profile?.email || "";
   const userRole = (session?.user as any)?.role ?? profile?.role ?? "user";
 
-  const handleAddressChange = (
-    index: number,
-    field: keyof AddressItem,
-    value: string
-  ) => {
-    setAddresses((prev) => {
-      const copy = [...prev];
-      copy[index] = { ...copy[index], [field]: value };
-      return copy;
+  const handleAddressChange = (index: number, value: string) => {
+    setAddresses(prev => {
+      const newAddresses = [...prev];
+      newAddresses[index] = value;
+      return newAddresses;
     });
   };
 
   const handleAddAddress = () => {
-    setAddresses((prev) => [...prev, { label: "", line1: "", line2: "" }]);
+    setAddresses(prev => [...prev, ""]);
   };
 
   const handleRemoveAddress = (index: number) => {
-    setAddresses((prev) => prev.filter((_, i) => i !== index));
+    if (addresses.length > 1) {
+      setAddresses(prev => prev.filter((_, i) => i !== index));
+    } else {
+      // If it's the last address, just clear it
+      setAddresses([""]);
+    }
   };
 
   const handleImageFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -300,50 +316,25 @@ export default function UserProfilePage() {
               )}
 
               <div className="space-y-3">
-                {addresses.map((addr, index) => (
-                  <div
-                    key={index}
-                    className="rounded-md border border-gray-200 p-3 space-y-2"
-                  >
-                    <div className="flex justify-between items-center">
-                      <p className="text-xs font-semibold text-gray-700">
-                        Address #{index + 1}
-                      </p>
+                {addresses.map((address, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={address}
+                      onChange={(e) => handleAddressChange(index, e.target.value)}
+                      className="flex-1 rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                      placeholder="Enter full address"
+                    />
+                    {addresses.length > 1 && (
                       <button
                         type="button"
                         onClick={() => handleRemoveAddress(index)}
-                        className="text-[11px] text-red-500 hover:text-red-600"
+                        className="px-2 py-1.5 text-red-500 hover:text-red-700"
+                        aria-label="Remove address"
                       >
-                        Remove
+                        ×
                       </button>
-                    </div>
-                    <input
-                      type="text"
-                      value={addr.label}
-                      onChange={(e) =>
-                        handleAddressChange(index, "label", e.target.value)
-                      }
-                      placeholder="Label (Home, Office, ইত্যাদি)"
-                      className="w-full rounded-md border border-gray-200 px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                    />
-                    <input
-                      type="text"
-                      value={addr.line1}
-                      onChange={(e) =>
-                        handleAddressChange(index, "line1", e.target.value)
-                      }
-                      placeholder="Address line 1"
-                      className="w-full rounded-md border border-gray-200 px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                    />
-                    <input
-                      type="text"
-                      value={addr.line2}
-                      onChange={(e) =>
-                        handleAddressChange(index, "line2", e.target.value)
-                      }
-                      placeholder="Address line 2 (optional)"
-                      className="w-full rounded-md border border-gray-200 px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                    />
+                    )}
                   </div>
                 ))}
               </div>
@@ -351,7 +342,7 @@ export default function UserProfilePage() {
               <button
                 type="button"
                 onClick={handleAddAddress}
-                className="mt-1 inline-flex items-center px-3 py-1.5 rounded-md border border-dashed border-emerald-400 text-xs font-semibold text-emerald-700 hover:bg-emerald-50"
+                className="mt-1 inline-flex items-center px-3 py-2 rounded-md border border-dashed border-emerald-400 text-sm font-medium text-emerald-700 hover:bg-emerald-50"
               >
                 + নতুন ঠিকানা যোগ করুন
               </button>
