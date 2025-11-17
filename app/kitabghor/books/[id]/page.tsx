@@ -1,12 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { products } from "@/public/BookData";
 import {
   Heart,
   ShoppingCart,
@@ -22,7 +21,6 @@ import {
   Truck,
   BookText,
   Share2,
-
 } from "lucide-react";
 import BookModel from "@/components/ecommarce/book-model";
 import PdfViewer from "@/components/ecommarce/pdf-viewer";
@@ -60,38 +58,73 @@ interface Product {
 export default function BookDetail() {
   const params = useParams();
   const bookId = params.id as string;
-  const book = products.find((product) => product.id.toString() === bookId);
+
   const { addToCart } = useCart();
   const { isInWishlist, addToWishlist, removeFromWishlist } = useWishlist();
 
+  const [book, setBook] = useState<Product | null>(null);
+  const [relatedBooks, setRelatedBooks] = useState<Product[]>([]);
   const [showModel, setShowModel] = useState(false);
   const [showPdf, setShowPdf] = useState(false);
   const [quantity, setQuantity] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  if (!book) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-[#EEEFE0]/30 to-white py-16 flex items-center justify-center">
-        <div className="text-center">
-          <BookText className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">বই পাওয়া যায়নি</h2>
-          <p className="text-gray-600 mb-6">আপনার অনুসন্ধানকৃত বইটি খুঁজে পাওয়া যায়নি</p>
-          <Link href="/kitabghor/books">
-            <Button className="rounded-full bg-gradient-to-r from-[#819A91] to-[#A7C1A8] text-white px-8">
-              সকল বই দেখুন
-            </Button>
-          </Link>
-        </div>
-      </div>
-    );
-  }
+  // ✅ API theke book + related books load
+  useEffect(() => {
+    const fetchBookData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        // 1) single book
+        const res = await fetch(`/api/products/${bookId}`);
+        if (!res.ok) {
+          if (res.status === 404) {
+            setBook(null);
+            setError("বই পাওয়া যায়নি");
+            return;
+          }
+          throw new Error("Failed to fetch product");
+        }
+
+        const data: Product = await res.json();
+        setBook(data);
+
+        // 2) all products -> related books
+        const resAll = await fetch("/api/products");
+        if (resAll.ok) {
+          const allProducts: Product[] = await resAll.json();
+          const related = allProducts
+            .filter(
+              (p) =>
+                p.id.toString() !== data.id.toString() &&
+                p.category.id.toString() === data.category.id.toString()
+            )
+            .slice(0, 4);
+          setRelatedBooks(related);
+        }
+      } catch (err) {
+        console.error(err);
+        setError("ডাটা লোড করতে সমস্যা হচ্ছে");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchBookData();
+  }, [bookId]);
 
   const handleQuantityChange = (value: number) => {
+    if (!book) return;
     if (value >= 1 && value <= book.stock) {
       setQuantity(value);
     }
   };
 
   const toggleWishlist = () => {
+    if (!book) return;
+
     if (isInWishlist(book.id)) {
       removeFromWishlist(book.id);
       toast.success("উইশলিস্ট থেকে সরানো হয়েছে");
@@ -102,25 +135,50 @@ export default function BookDetail() {
   };
 
   const handleAddToCart = () => {
+    if (!book) return;
     addToCart(book.id, quantity);
     toast.success(`${quantity} টি "${book.name}" কার্টে যোগ করা হয়েছে`);
   };
 
-  const relatedBooks = products
-    .filter(
-      (product) =>
-        product.category.id === book.category.id && product.id !== book.id
-    )
-    .slice(0, 4);
+  // 🔄 Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-[#EEEFE0]/30 to-white py-16 flex items-center justify-center">
+        <p className="text-gray-600">ডাটা লোড হচ্ছে...</p>
+      </div>
+    );
+  }
+
+  // ❌ Not found / error state
+  if (!book || error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-[#EEEFE0]/30 to-white py-16 flex items-center justify-center">
+        <div className="text-center">
+          <BookText className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">
+            বই পাওয়া যায়নি
+          </h2>
+          <p className="text-gray-600 mb-6">
+            আপনার অনুসন্ধানকৃত বইটি খুঁজে পাওয়া যায়নি
+          </p>
+          <Link href="/kitabghor/books">
+            <Button className="rounded-full bg-gradient-to-r from-[#819A91] to-[#A7C1A8] text-white px-8">
+              সকল বই দেখুন
+            </Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EEEFE0]/30 to-white py-8 md:py-12 lg:py-16">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         {/* Breadcrumb Navigation */}
         <div className="flex items-center gap-4 mb-6">
-          <Link 
-            href="/kitabghor/books" 
-            className="flex items-center gap-2 text-[#819A91] hover:text-[#A7C1A8] transition-colors duration-300 group"
+          <Link
+            href="/kitabghor/books"
+            className="flex items-center gap-2 text-[#819A91] hover:text-[#A7C1A8] transition-colors	duration-300 group"
           >
             <ArrowLeft className="h-5 w-5 group-hover:-translate-x-1 transition-transform" />
             <span>সকল বই</span>
@@ -137,11 +195,11 @@ export default function BookDetail() {
                   src={book.image}
                   alt={book.name}
                   fill
-                  className="object-cover transition-transform duration-700 group-hover:scale-105"
+                  className="object-cover transition-transform	duration-700 group-hover:scale-105"
                 />
                 {/* Overlay */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                
+
                 {/* Discount Badge */}
                 {book.discount > 0 && (
                   <div className="absolute top-4 left-4 bg-gradient-to-r from-[#819A91] to-[#A7C1A8] text-white text-sm font-bold px-4 py-2 rounded-full shadow-lg z-10">
@@ -197,19 +255,27 @@ export default function BookDetail() {
                 {[1, 2, 3, 4, 5].map((star) => (
                   <Star
                     key={star}
-                    className={`h-5 w-5 ${star <= 4 ? "text-amber-400 fill-amber-400" : "text-gray-300"}`}
+                    className={`h-5 w-5 ${
+                      star <= 4
+                        ? "text-amber-400 fill-amber-400"
+                        : "text-gray-300"
+                    }`}
                   />
                 ))}
               </div>
               <span className="text-sm text-gray-600">(12 রিভিউ)</span>
               <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
-              <span className="text-sm text-gray-600">{book.stock} পিস স্টকে</span>
+              <span className="text-sm text-gray-600">
+                {book.stock} পিস স্টকে
+              </span>
             </div>
 
             {/* Price Section */}
             <div className="mb-6 p-4 bg-gradient-to-r from-[#EEEFE0] to-[#D1D8BE] rounded-xl">
               <div className="flex items-baseline gap-3">
-                <span className="text-3xl font-bold text-[#819A91]">৳{book.price}</span>
+                <span className="text-3xl font-bold text-[#819A91]">
+                  ৳{book.price}
+                </span>
                 {book.discount > 0 && (
                   <>
                     <span className="text-xl text-gray-500 line-through">
@@ -279,7 +345,7 @@ export default function BookDetail() {
                       handleQuantityChange(Number.parseInt(e.target.value))
                     }
                     className="w-16 text-center py-2 border-none focus:outline-none bg-white font-semibold"
-                    min="1"
+                    min={1}
                     max={book.stock}
                   />
                   <button
@@ -294,7 +360,7 @@ export default function BookDetail() {
 
               {/* Action Buttons */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Button 
+                <Button
                   className="rounded-xl py-3 bg-gradient-to-r from-[#819A91] to-[#A7C1A8] hover:from-[#A7C1A8] hover:to-[#819A91] text-white font-semibold border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 group/cart"
                   onClick={handleAddToCart}
                 >
@@ -306,14 +372,16 @@ export default function BookDetail() {
                     variant="outline"
                     onClick={toggleWishlist}
                     className={`flex-1 rounded-xl border-2 ${
-                      isInWishlist(book.id) 
-                        ? "border-red-300 bg-red-50 text-red-500" 
+                      isInWishlist(book.id)
+                        ? "border-red-300 bg-red-50 text-red-500"
                         : "border-[#D1D8BE] text-gray-600 hover:border-[#819A91] hover:text-[#819A91]"
                     } transition-all duration-300 group/wishlist`}
                   >
                     <Heart
                       className={`h-5 w-5 ${
-                        isInWishlist(book.id) ? "fill-current scale-110" : "group-hover/wishlist:scale-110"
+                        isInWishlist(book.id)
+                          ? "fill-current scale-110"
+                          : "group-hover/wishlist:scale-110"
                       } transition-transform`}
                     />
                   </Button>
@@ -347,41 +415,47 @@ export default function BookDetail() {
         <div className="bg-white rounded-2xl shadow-lg border-0 overflow-hidden">
           <Tabs defaultValue="description" className="w-full">
             <TabsList className="grid w-full grid-cols-3 bg-[#EEEFE0] p-2">
-              <TabsTrigger 
-                value="description" 
+              <TabsTrigger
+                value="description"
                 className="rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#819A91] data-[state=active]:to-[#A7C1A8] data-[state=active]:text-white transition-all duration-300"
               >
                 বিস্তারিত বিবরণ
               </TabsTrigger>
-              <TabsTrigger 
-                value="reviews" 
+              <TabsTrigger
+                value="reviews"
                 className="rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#819A91] data-[state=active]:to-[#A7C1A8] data-[state=active]:text-white transition-all duration-300"
               >
                 রিভিউ ও রেটিং
               </TabsTrigger>
-              <TabsTrigger 
-                value="related" 
+              <TabsTrigger
+                value="related"
                 className="rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#819A91] data-[state=active]:to-[#A7C1A8] data-[state=active]:text-white transition-all duration-300"
               >
                 সম্পর্কিত বই
               </TabsTrigger>
             </TabsList>
-            
+
             <TabsContent value="description" className="p-6 lg:p-8">
               <div className="prose max-w-none">
-                <h3 className="text-xl font-bold text-gray-800 mb-4">বই সম্পর্কে</h3>
-                <p className="text-gray-600 leading-relaxed mb-4">{book.description}</p>
+                <h3 className="text-xl font-bold text-gray-800 mb-4">
+                  বই সম্পর্কে
+                </h3>
+                <p className="text-gray-600 leading-relaxed mb-4">
+                  {book.description}
+                </p>
                 <p className="text-gray-600 leading-relaxed">
-                  এই বইটি <strong>{book.writer.name}</strong> দ্বারা লিখিত এবং <strong>{book.publisher.name}</strong> দ্বারা প্রকাশিত। 
-                  এটি <strong>{book.category.name}</strong> বিভাগের অন্তর্গত একটি উৎকৃষ্ট সাহিত্যকর্ম।
+                  এই বইটি <strong>{book.writer.name}</strong> দ্বারা লিখিত এবং{" "}
+                  <strong>{book.publisher.name}</strong> দ্বারা প্রকাশিত। এটি{" "}
+                  <strong>{book.category.name}</strong> বিভাগের অন্তর্গত একটি
+                  উৎকৃষ্ট সাহিত্যকর্ম।
                 </p>
               </div>
             </TabsContent>
-            
+
             <TabsContent value="reviews" className="p-6 lg:p-8">
               <BookReviews bookId={bookId} />
             </TabsContent>
-            
+
             <TabsContent value="related" className="p-6 lg:p-8">
               <RelatedBooks books={relatedBooks} />
             </TabsContent>
@@ -421,17 +495,19 @@ export default function BookDetail() {
                   <BookOpen className="h-5 w-5 text-[#819A91]" />
                   PDF প্রিভিউ - {book.name}
                 </h3>
+              </div>
+              <div className="h-[calc(80vh-80px)]">
+                <PdfViewer pdfUrl={book.pdf} />
+              </div>
+              <div className="absolute top-4 right-4">
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={() => setShowPdf(false)}
-                  className="rounded-xl hover:bg-red-50 hover:text-red-500 transition-colors"
+                  className="rounded-xl bg-white/80 hover:bg-red-50 hover:text-red-500 transition-colors shadow-md"
                 >
                   <X className="h-5 w-5" />
                 </Button>
-              </div>
-              <div className="h-[calc(80vh-80px)]">
-                <PdfViewer pdfUrl={book.pdf} />
               </div>
             </div>
           </div>

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Heart, ShoppingCart, Star, BookOpen, Search, Zap } from "lucide-react";
-import { products } from "@/public/BookData";
+// import { products } from "@/public/BookData"; // ❌ এটা আর লাগবে না
 import { useCart } from "@/components/ecommarce/CartContext";
 import { useWishlist } from "@/components/ecommarce/WishlistContext";
 import { toast } from "sonner";
@@ -26,15 +26,34 @@ interface Product {
 export default function AllBooksPage() {
   const { addToCart } = useCart();
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
+
+  const [products, setProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [clientRatings, setClientRatings] = useState<number[]>([]);
   const [hasMounted, setHasMounted] = useState(false);
 
   useEffect(() => {
-    setHasMounted(true);
-    // Generate random ratings only on client
-    const ratings = products.map(() => Math.random() * 2 + 3);
-    setClientRatings(ratings);
+    const fetchProducts = async () => {
+      try {
+        const res = await fetch("/api/products");
+
+        if (!res.ok) {
+          throw new Error("Failed to fetch products");
+        }
+
+        const data: Product[] = await res.json();
+        setProducts(data);
+
+        // client side rating generate
+        const ratings = data.map(() => Math.random() * 2 + 3);
+        setClientRatings(ratings);
+        setHasMounted(true);
+      } catch (error) {
+        console.error(error);
+      }
+    };
+
+    fetchProducts();
   }, []);
 
   const handleToggleWishlist = (bookId: number) => {
@@ -58,7 +77,7 @@ export default function AllBooksPage() {
 
   const getBookWithEnhancements = (book: Product, index: number) => ({
     ...book,
-    rating: hasMounted ? clientRatings[index] : 3.5,
+    rating: hasMounted ? clientRatings[index] ?? 3.5 : 3.5,
     isBestseller: index % 3 === 0,
     isNew: index % 4 === 0,
   });
@@ -98,11 +117,14 @@ export default function AllBooksPage() {
           {/* Results Count */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6 md:mb-8 px-4">
             <div className="text-gray-600 text-sm sm:text-base">
-              <span className="font-semibold text-[#819A91]">{filteredBooks.length}</span>টি বই পাওয়া গেছে
+              <span className="font-semibold text-[#819A91]">
+                {filteredBooks.length}
+              </span>
+              টি বই পাওয়া গেছে
             </div>
             {searchTerm && (
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => setSearchTerm("")}
                 className="rounded-full border-[#819A91] text-[#819A91] hover:bg-[#819A91] hover:text-white text-sm px-4 py-2"
               >
@@ -121,7 +143,7 @@ export default function AllBooksPage() {
               <p className="text-gray-500 text-sm sm:text-base mb-4 sm:mb-6 max-w-md mx-auto">
                 আপনার অনুসন্ধানের সাথে মিলছে এমন কোন বই নেই
               </p>
-              <Button 
+              <Button
                 onClick={() => setSearchTerm("")}
                 className="rounded-full bg-gradient-to-r from-[#819A91] to-[#A7C1A8] text-white px-6 sm:px-8 py-2 sm:py-3 text-sm sm:text-base"
               >
@@ -133,7 +155,7 @@ export default function AllBooksPage() {
               {filteredBooks.map((book, index) => {
                 const enhancedBook = getBookWithEnhancements(book, index);
                 const isWishlisted = isInWishlist(book.id);
-                
+
                 return (
                   <Card
                     key={book.id}
@@ -162,15 +184,21 @@ export default function AllBooksPage() {
                     <button
                       onClick={() => handleToggleWishlist(book.id)}
                       className={`absolute top-2 sm:top-3 right-2 sm:right-3 z-10 p-1.5 sm:p-2 rounded-full backdrop-blur-sm transition-all duration-300 ${
-                        isWishlisted 
-                          ? "bg-red-500/20 text-red-500" 
+                        isWishlisted
+                          ? "bg-red-500/20 text-red-500"
                           : "bg-white/80 text-gray-500 hover:bg-red-500/20 hover:text-red-500"
                       }`}
-                      aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
+                      aria-label={
+                        isWishlisted
+                          ? "Remove from wishlist"
+                          : "Add to wishlist"
+                      }
                     >
                       <Heart
                         className={`h-4 w-4 sm:h-5 sm:w-5 transition-all ${
-                          isWishlisted ? "scale-110 fill-current" : "group-hover:scale-110"
+                          isWishlisted
+                            ? "scale-110 fill-current"
+                            : "group-hover:scale-110"
                         }`}
                       />
                     </button>
@@ -187,7 +215,7 @@ export default function AllBooksPage() {
                         />
                         {/* Overlay */}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                        
+
                         {/* Quick View */}
                         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
                           <div className="bg-white/90 backdrop-blur-sm rounded-full p-2 sm:p-3 transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
@@ -272,8 +300,8 @@ export default function AllBooksPage() {
           {filteredBooks.length > 0 && (
             <div className="text-center mt-12 md:mt-16 px-4">
               <div className="bg-gradient-to-r from-[#819A91] to-[#A7C1A8] p-0.5 rounded-full inline-block">
-                <Button 
-                  variant="ghost" 
+                <Button
+                  variant="ghost"
                   className="rounded-full bg-white hover:bg-gray-50 text-gray-800 font-semibold px-6 sm:px-8 py-4 sm:py-6 group text-sm sm:text-base"
                 >
                   <span className="mr-1.5 sm:mr-2">আরও বই লোড করুন</span>

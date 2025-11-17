@@ -1,9 +1,9 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { products } from "@/public/BookData";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import {
@@ -19,14 +19,94 @@ import { useCart } from "@/components/ecommarce/CartContext";
 import { useWishlist } from "@/components/ecommarce/WishlistContext";
 import { toast } from "sonner";
 
+type Writer = {
+  id: number;
+  name: string;
+  image: string | null;
+  createdAt: string;
+  updatedAt: string;
+  _count: {
+    products: number;
+  };
+};
+
+type Book = {
+  id: number;
+  name: string;
+  image: string | null;
+  price: number;
+  original_price: number;
+  discount: number;
+  writer: {
+    id: number;
+    name: string;
+  };
+};
+
 export default function AuthorBooksPage() {
   const rawId = useParams().id;
-  const authorId = parseInt(Array.isArray(rawId) ? rawId[0] : (rawId ?? "0"));
+  const authorId = parseInt(
+    Array.isArray(rawId) ? rawId[0] : (rawId ?? "0"),
+    10
+  );
+
   const { addToCart } = useCart();
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
 
-  const authorBooks = products.filter((book) => book.writer.id === authorId);
-  const authorName = authorBooks[0]?.writer.name;
+  const [author, setAuthor] = useState<Writer | null>(null);
+  const [authorBooks, setAuthorBooks] = useState<Book[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // ✅ writer + tar books load korbo
+  useEffect(() => {
+    const fetchAuthorData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        // 1) writer info
+        const resWriter = await fetch(`/api/writers/${authorId}`);
+        if (!resWriter.ok) {
+          if (resWriter.status === 404) {
+            setAuthor(null);
+            setAuthorBooks([]);
+            setError("লেখক পাওয়া যায়নি");
+            return;
+          }
+          throw new Error("Failed to fetch writer");
+        }
+
+        const writerData: Writer = await resWriter.json();
+        setAuthor(writerData);
+
+        // 2) all products -> filter by writer
+        const resProducts = await fetch("/api/products");
+        if (resProducts.ok) {
+          const allProducts: Book[] = await resProducts.json();
+          const booksOfAuthor = allProducts.filter(
+            (book) => Number(book.writer.id) === writerData.id
+          );
+          setAuthorBooks(booksOfAuthor);
+        } else {
+          // products na peleo writer show korব
+          console.error("Failed to fetch products");
+        }
+      } catch (err) {
+        console.error(err);
+        setError("ডাটা লোড করতে সমস্যা হচ্ছে");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (!Number.isNaN(authorId)) {
+      fetchAuthorData();
+    } else {
+      setLoading(false);
+      setError("ভুল লেখক আইডি");
+    }
+  }, [authorId]);
 
   const toggleWishlist = (bookId: number) => {
     if (isInWishlist(bookId)) {
@@ -38,19 +118,32 @@ export default function AuthorBooksPage() {
     }
   };
 
-  const handleAddToCart = (book: any) => {
+  const handleAddToCart = (book: Book) => {
     addToCart(book.id);
     toast.success(`"${book.name}" কার্টে যোগ করা হয়েছে`);
   };
 
-  const getBookWithEnhancements = (book: any, index: number) => ({
+  const getBookWithEnhancements = (book: Book, index: number) => ({
     ...book,
     rating: 4.2 + ((index * 0.1) % 0.8),
     isBestseller: index % 3 === 0,
     isNew: index % 4 === 0,
   });
 
-  if (authorBooks.length === 0) {
+  const authorName = author?.name;
+  const totalBooks = authorBooks.length;
+
+  // 🔄 Loading
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-[#EEEFE0]/30 to-white py-16 flex items-center justify-center">
+        <p className="text-gray-600">ডাটা লোড হচ্ছে...</p>
+      </div>
+    );
+  }
+
+  // ❌ Error / no author / no books
+  if (!author || totalBooks === 0 || error) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-[#EEEFE0]/30 to-white py-16 flex items-center justify-center">
         <div className="text-center">
@@ -72,7 +165,7 @@ export default function AuthorBooksPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#EEEFE0]/30 to-white py-8 md:py-12 lg:py-16">
+    <div className="min-h-screen bg-gradient_to-b from-[#EEEFE0]/30 to-white py-8 md:py-12 lg:py-16">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         {/* Enhanced Header */}
         <div className="mb-8 md:mb-12">
@@ -92,8 +185,18 @@ export default function AuthorBooksPage() {
               {/* Author Avatar */}
               <div className="relative">
                 <div className="bg-white/20 p-4 rounded-2xl backdrop-blur-sm">
-                  <div className="w-20 h-20 md:w-24 md:h-24 rounded-xl bg-white/10 flex items-center justify-center border-2 border-white/30">
-                    <User className="h-10 w-10 md:h-12 md:w-12 text-white" />
+                  <div className="w-20 h-20 md:w-24 md:h-24 rounded-xl bg-white/10 flex items-center justify-center border-2 border-white/30 overflow-hidden">
+                    {author.image ? (
+                      <Image
+                        src={author.image}
+                        alt={author.name}
+                        width={96}
+                        height={96}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <User className="h-10 w-10 md:h-12 md:w-12 text_white" />
+                    )}
                   </div>
                 </div>
                 <div className="absolute -bottom-2 -right-2 bg-white text-[#819A91] p-2 rounded-full shadow-lg">
@@ -113,14 +216,14 @@ export default function AuthorBooksPage() {
                 <div className="flex flex-wrap gap-6 text-sm justify-center md:justify-start">
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 bg-white rounded-full"></div>
-                    <span>মোট {authorBooks.length} টি বই</span>
+                    <span>মোট {totalBooks} টি বই</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 bg-white rounded-full"></div>
                     <span>বিভিন্ন বিভাগ</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-white rounded-full"></div>
+                    <div className="w-2 h-2 bg-white rounded_full"></div>
                     <span>গুণগত রচনা</span>
                   </div>
                 </div>
@@ -143,17 +246,17 @@ export default function AuthorBooksPage() {
                 {/* Badges */}
                 <div className="absolute top-3 left-3 z-10 flex flex-col gap-2">
                   {enhancedBook.discount > 0 && (
-                    <div className="bg-gradient-to-r from-[#819A91] to-[#A7C1A8] text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">
+                    <div className="bg-gradient_to-r from-[#819A91] to-[#A7C1A8] text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">
                       {enhancedBook.discount}% ছাড়
                     </div>
                   )}
                   {enhancedBook.isBestseller && (
-                    <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">
+                    <div className="bg-gradient-to-r from-amber-500 to-orange-500 text_white text-xs font-bold px-3 py-1 rounded-full shadow-lg">
                       বেস্টসেলার
                     </div>
                   )}
                   {enhancedBook.isNew && (
-                    <div className="bg-gradient-to-r from-emerald-500 to-green-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">
+                    <div className="bg-gradient_to-r from-emerald-500 to-green-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">
                       নতুন
                     </div>
                   )}
@@ -187,15 +290,15 @@ export default function AuthorBooksPage() {
                       src={book.image || "/placeholder.svg"}
                       alt={book.name}
                       fill
-                      className="object-cover transition-transform duration-700 group-hover:scale-110"
+                      className="object-cover transition-transform	duration-700 group-hover:scale-110"
                       sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
                     />
                     {/* Overlay */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity	duration-300" />
 
                     {/* Quick View */}
-                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
-                      <div className="bg-white/90 backdrop-blur-sm rounded-full p-3 transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
+                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all	duration-300">
+                      <div className="bg-white/90 backdrop-blur-sm rounded-full p-3 transform translate-y-4 group-hover:translate-y-0 transition-transform	duration-300">
                         <BookOpen className="h-6 w-6 text-[#819A91]" />
                       </div>
                     </div>
@@ -266,7 +369,7 @@ export default function AuthorBooksPage() {
                 </CardFooter>
 
                 {/* Hover Effect Border */}
-                <div className="absolute inset-0 rounded-2xl border-2 border-transparent group-hover:border-[#819A91]/20 transition-all duration-500 pointer-events-none"></div>
+                <div className="absolute inset-0 rounded-2xl border-2 border-transparent group-hover:border-[#819A91]/20 transition-all	duration-500 pointer-events-none"></div>
               </Card>
             );
           })}
@@ -276,7 +379,7 @@ export default function AuthorBooksPage() {
         <div className="flex justify-between items-center mt-12 pt-8 border-t border-[#D1D8BE]">
           <Link
             href="/kitabghor/authors"
-            className="flex items-center gap-2 text-[#819A91] hover:text-[#A7C1A8] transition-colors duration-300 group"
+            className="flex items-center gap-2 text-[#819A91] hover:text-[#A7C1A8] transition-colors	duration-300 group"
           >
             <ArrowLeft className="h-5 w-5 group-hover:-translate-x-1 transition-transform" />
             <span>সকল লেখকের বই দেখুন</span>

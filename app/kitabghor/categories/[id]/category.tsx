@@ -1,12 +1,19 @@
 "use client";
 
-import {useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { Heart, ShoppingCart, BookOpen, ArrowLeft, Star, Filter, BookText } from "lucide-react";
-import { products, categories } from "@/public/BookData";
+import {
+  Heart,
+  ShoppingCart,
+  BookOpen,
+  ArrowLeft,
+  Star,
+  Filter,
+  BookText,
+} from "lucide-react";
 import { useCart } from "@/components/ecommarce/CartContext";
 import { useWishlist } from "@/components/ecommarce/WishlistContext";
 import { toast } from "sonner";
@@ -17,47 +24,129 @@ interface CategoryPageProps {
   };
 }
 
+type Writer = {
+  id: number;
+  name: string;
+};
+
+type Book = {
+  id: number;
+  name: string;
+  image: string | null;
+  price: number;
+  original_price?: number | null;
+  discount: number;
+  writer: Writer;
+};
+
+type Category = {
+  id: number;
+  name: string;
+};
+
 export default function CategoryPage({ params }: CategoryPageProps) {
   const { addToCart } = useCart();
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
 
-  const categoryId = Number.parseInt(params.id);
-  const category = categories.find((cat) => cat.id === categoryId);
+  const [category, setCategory] = useState<Category | null>(null);
+  const [categoryBooks, setCategoryBooks] = useState<Book[]>([]);
+  const [categoryCount, setCategoryCount] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const categoryBooks = products.filter(
-    (product) => product.category.id === categoryId
+  // ✅ Load single category + books
+  useEffect(() => {
+    const fetchCategoryData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        // 1) category + products
+        const res = await fetch(`/api/categories/${params.id}`);
+        if (!res.ok) {
+          if (res.status === 404) {
+            setCategory(null);
+            setCategoryBooks([]);
+            setError("বিভাগ পাওয়া যায়নি");
+            return;
+          }
+          throw new Error("Failed to fetch category");
+        }
+
+        const data: { category: Category; products: Book[] } = await res.json();
+        setCategory(data.category);
+        setCategoryBooks(data.products);
+
+        // 2) all categories count (header info)
+        const resAll = await fetch("/api/categories");
+        if (resAll.ok) {
+          const allCats: Category[] = await resAll.json();
+          setCategoryCount(allCats.length);
+        }
+      } catch (err) {
+        console.error(err);
+        setError("ডাটা লোড করতে সমস্যা হচ্ছে");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCategoryData();
+  }, [params.id]);
+
+  // Fixed: deterministic enhancements
+  const getBookWithEnhancements = useCallback(
+    (book: Book, index: number) => ({
+      ...book,
+      rating: 4.2 + ((index * 0.1) % 0.8),
+      isBestseller: index % 3 === 0,
+      isNew: index % 4 === 0,
+    }),
+    []
   );
 
-  // Fixed: Remove useEffect and use deterministic ratings
-  const getBookWithEnhancements = useCallback((book: any, index: number) => ({
-    ...book,
-    rating: 4.2 + (index * 0.1) % 0.8, // Slightly varied but deterministic
-    isBestseller: index % 3 === 0,
-    isNew: index % 4 === 0,
-  }), []);
+  const toggleWishlist = useCallback(
+    (bookId: number) => {
+      if (isInWishlist(bookId)) {
+        removeFromWishlist(bookId);
+        toast.success("উইশলিস্ট থেকে সরানো হয়েছে");
+      } else {
+        addToWishlist(bookId);
+        toast.success("উইশলিস্টে যোগ করা হয়েছে");
+      }
+    },
+    [isInWishlist, removeFromWishlist, addToWishlist]
+  );
 
-  const toggleWishlist = useCallback((bookId: number) => {
-    if (isInWishlist(bookId)) {
-      removeFromWishlist(bookId);
-      toast.success("উইশলিস্ট থেকে সরানো হয়েছে");
-    } else {
-      addToWishlist(bookId);
-      toast.success("উইশলিস্টে যোগ করা হয়েছে");
-    }
-  }, [isInWishlist, removeFromWishlist, addToWishlist]);
+  const handleAddToCart = useCallback(
+    (book: Book) => {
+      addToCart(book.id);
+      toast.success(`"${book.name}" কার্টে যোগ করা হয়েছে`);
+    },
+    [addToCart]
+  );
 
-  const handleAddToCart = useCallback((book: any) => {
-    addToCart(book.id);
-    toast.success(`"${book.name}" কার্টে যোগ করা হয়েছে`);
-  }, [addToCart]);
+  // ✅ Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-[#EEEFE0]/30 to-white flex items-center justify-center">
+        <p className="text-gray-600">ডাটা লোড হচ্ছে...</p>
+      </div>
+    );
+  }
 
-  if (!category) {
+  // ✅ Error or not-found state
+  if (!category || error) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-[#EEEFE0]/30 to-white py-16 flex items-center justify-center">
         <div className="text-center">
           <BookText className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">বিভাগ পাওয়া যায়নি</h2>
-          <p className="text-gray-600 mb-6">আপনার অনুসন্ধানকৃত বিভাগটি খুঁজে পাওয়া যায়নি</p>
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">
+            বিভাগ পাওয়া যায়নি
+          </h2>
+          <p className="text-gray-600 mb-6">
+            আপনার অনুসন্ধানকৃত বিভাগটি খুঁজে পাওয়া যায়নি
+          </p>
           <Link href="/kitabghor/categories">
             <Button className="rounded-full bg-gradient-to-r from-[#819A91] to-[#A7C1A8] text-white px-8">
               সকল বিভাগ দেখুন
@@ -69,22 +158,22 @@ export default function CategoryPage({ params }: CategoryPageProps) {
   }
 
   return (
-    <div className="min-h-screen  bg-gradient-to-b from-[#EEEFE0]/30 to-white py-8 md:py-12 lg:py-16">
+    <div className="min-h-screen bg-gradient-to-b from-[#EEEFE0]/30 to-white py-8 md:py-12 lg:py-16">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         {/* Enhanced Header */}
         <div className="mb-8 md:mb-12">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <div className="flex items-center gap-4">
-              <Link 
-                href="/kitabghor/categories" 
+              <Link
+                href="/kitabghor/categories"
                 className="flex items-center gap-2 text-[#819A91] hover:text-[#A7C1A8] transition-colors duration-300 group"
               >
                 <ArrowLeft className="h-5 w-5 group-hover:-translate-x-1 transition-transform" />
                 <span>সকল বিভাগ</span>
               </Link>
-              <div className="w-1 h-8 bg-gradient-to-b from-[#819A91] to-[#A7C1A8] rounded-full"></div>
+              <div className="w-1 h-8 bg-gradient-to-b from-[#819A91] to-[#A7C1A8] rounded-full" />
             </div>
-            
+
             <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-full shadow-lg border border-[#D1D8BE]">
               <Filter className="h-4 w-4 text-[#819A91]" />
               <span className="text-sm text-gray-600">সাজান:</span>
@@ -110,18 +199,22 @@ export default function CategoryPage({ params }: CategoryPageProps) {
                 </p>
               </div>
             </div>
-            
+
             <div className="flex flex-wrap gap-6 text-sm">
               <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-white rounded-full"></div>
+                <div className="w-2 h-2 bg-white rounded-full" />
                 <span>মোট {categoryBooks.length} টি বই</span>
               </div>
+
+              {categoryCount !== null && (
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-white rounded-full" />
+                  <span>{categoryCount}টি বিভাগ</span>
+                </div>
+              )}
+
               <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-white rounded-full"></div>
-                <span>{categories.length}টি বিভাগ</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-white rounded-full"></div>
+                <div className="w-2 h-2 bg-white rounded-full" />
                 <span>১০০% গুণগত মান</span>
               </div>
             </div>
@@ -132,8 +225,12 @@ export default function CategoryPage({ params }: CategoryPageProps) {
         {categoryBooks.length === 0 ? (
           <div className="text-center py-16 bg-white rounded-2xl shadow-lg">
             <BookOpen className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-600 mb-2">কোন বই পাওয়া যায়নি</h3>
-            <p className="text-gray-500 mb-6">এই বিভাগে এখনও কোন বই যোগ করা হয়নি</p>
+            <h3 className="text-xl font-semibold text-gray-600 mb-2">
+              কোন বই পাওয়া যায়নি
+            </h3>
+            <p className="text-gray-500 mb-6">
+              এই বিভাগে এখনও কোন বই যোগ করা হয়নি
+            </p>
             <Link href="/kitabghor/categories">
               <Button className="rounded-full bg-gradient-to-r from-[#819A91] to-[#A7C1A8] text-white px-8">
                 অন্যান্য বিভাগ দেখুন
@@ -145,7 +242,7 @@ export default function CategoryPage({ params }: CategoryPageProps) {
             {categoryBooks.map((book, index) => {
               const enhancedBook = getBookWithEnhancements(book, index);
               const isWishlisted = isInWishlist(book.id);
-              
+
               return (
                 <Card
                   key={book.id}
@@ -174,15 +271,21 @@ export default function CategoryPage({ params }: CategoryPageProps) {
                   <button
                     onClick={() => toggleWishlist(book.id)}
                     className={`absolute top-3 right-3 z-10 p-2 rounded-full backdrop-blur-sm transition-all duration-300 ${
-                      isWishlisted 
-                        ? "bg-red-500/20 text-red-500" 
+                      isWishlisted
+                        ? "bg-red-500/20 text-red-500"
                         : "bg-white/80 text-gray-500 hover:bg-red-500/20 hover:text-red-500"
                     }`}
-                    aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
+                    aria-label={
+                      isWishlisted
+                        ? "Remove from wishlist"
+                        : "Add to wishlist"
+                    }
                   >
                     <Heart
                       className={`h-5 w-5 transition-all ${
-                        isWishlisted ? "scale-110 fill-current" : "group-hover:scale-110"
+                        isWishlisted
+                          ? "scale-110 fill-current"
+                          : "group-hover:scale-110"
                       }`}
                     />
                   </button>
@@ -199,7 +302,7 @@ export default function CategoryPage({ params }: CategoryPageProps) {
                       />
                       {/* Overlay */}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                      
+
                       {/* Quick View */}
                       <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
                         <div className="bg-white/90 backdrop-blur-sm rounded-full p-3 transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
@@ -238,8 +341,8 @@ export default function CategoryPage({ params }: CategoryPageProps) {
 
                     {/* Author */}
                     <p className="text-sm text-gray-600 mb-3 flex items-center">
-                      <span className="w-1 h-1 bg-[#819A91] rounded-full mr-2"></span>
-                      {book.writer.name}
+                      <span className="w-1 h-1 bg-[#819A91] rounded-full mr-2" />
+                      {book.writer?.name}
                     </p>
 
                     {/* Price */}
@@ -248,9 +351,9 @@ export default function CategoryPage({ params }: CategoryPageProps) {
                         <span className="font-bold text-xl text-[#819A91]">
                           ৳{book.price}
                         </span>
-                        {book.discount > 0 && (
+                        {book.discount > 0 && enhancedBook.original_price && (
                           <span className="text-sm text-gray-500 line-through">
-                            ৳{book.original_price}
+                            ৳{enhancedBook.original_price}
                           </span>
                         )}
                       </div>
@@ -273,7 +376,7 @@ export default function CategoryPage({ params }: CategoryPageProps) {
                   </CardFooter>
 
                   {/* Hover Effect Border */}
-                  <div className="absolute inset-0 rounded-2xl border-2 border-transparent group-hover:border-[#819A91]/20 transition-all duration-500 pointer-events-none"></div>
+                  <div className="absolute inset-0 rounded-2xl border-2 border-transparent group-hover:border-[#819A91]/20 transition-all duration-500 pointer-events-none" />
                 </Card>
               );
             })}
@@ -282,16 +385,20 @@ export default function CategoryPage({ params }: CategoryPageProps) {
 
         {/* Bottom Navigation */}
         <div className="flex justify-between items-center mt-12 pt-8 border-t border-[#D1D8BE]">
-          <Link 
-            href="/kitabghor/categories" 
+          <Link
+            href="/kitabghor/categories"
             className="flex items-center gap-2 text-[#819A91] hover:text-[#A7C1A8] transition-colors duration-300 group"
           >
             <ArrowLeft className="h-5 w-5 group-hover:-translate-x-1 transition-transform" />
             <span>সকল বিভাগে ফিরে যান</span>
           </Link>
-          
+
           <div className="text-sm text-gray-600">
-            মোট <span className="font-semibold text-[#819A91]">{categoryBooks.length}</span> টি বই
+            মোট{" "}
+            <span className="font-semibold text-[#819A91]">
+              {categoryBooks.length}
+            </span>{" "}
+            টি বই
           </div>
         </div>
       </div>
