@@ -20,12 +20,21 @@ export async function GET() {
   }
 }
 
-// In your API route (e.g., /api/products/route.ts)
 export async function POST(req: Request) {
   try {
     const body = await req.json();
 
-    // Convert string IDs to numbers
+    const exists = await prisma.product.findUnique({
+      where: { slug: body.slug },
+    });
+
+    if (exists) {
+      return NextResponse.json(
+        { error: "Slug already exists. Please use a unique slug." },
+        { status: 400 }
+      );
+    }
+
     const writerId = body.writerId ? Number(body.writerId) : null;
     const publisherId = body.publisherId ? Number(body.publisherId) : null;
     const categoryId = Number(body.categoryId);
@@ -40,10 +49,9 @@ export async function POST(req: Request) {
         discount: body.discount ? Number(body.discount) : 0,
         stock: Number(body.stock),
         available: body.available,
-        writerId: writerId,
-        publisherId: publisherId,
-        categoryId: categoryId,
-        // Include the file uploads
+        writerId,
+        publisherId,
+        categoryId,
         image: body.image || null,
         gallery: body.gallery || [],
         pdf: body.pdf || null,
@@ -52,7 +60,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json(product);
   } catch (err) {
-    console.error(err);
+    console.error("Product Create Error:", err);
     return NextResponse.json(
       { error: "Failed to create product" },
       { status: 500 }

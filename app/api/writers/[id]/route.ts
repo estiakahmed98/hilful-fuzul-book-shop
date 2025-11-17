@@ -1,45 +1,87 @@
+// app/api/writers/[id]/route.ts
+
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-export async function GET(req: Request, context: { params: Promise<{ id: string }> }) {
+type ParamsType = {
+  params: Promise<{ id: string }>;
+};
+
+// GET single writer
+export async function GET(req: Request, context: ParamsType) {
   const { id } = await context.params;
 
   try {
     const writer = await prisma.writer.findUnique({
       where: { id: Number(id) },
+      select: {
+        id: true,
+        name: true,
+        image: true,
+        createdAt: true,
+        updatedAt: true,
+        _count: {
+          select: { products: true },
+        },
+      },
     });
 
-    if (!writer) {
+    if (!writer)
       return NextResponse.json({ error: "Writer not found" }, { status: 404 });
-    }
 
     return NextResponse.json(writer);
-  } catch (error) {
-    return NextResponse.json({ error: "Failed to fetch writer" }, { status: 500 });
+  } catch (err) {
+    return NextResponse.json(
+      { error: "Failed to fetch writer" },
+      { status: 500 }
+    );
   }
 }
 
-export async function PUT(req: Request, context: { params: Promise<{ id: string }> }) {
+// UPDATE writer
+export async function PUT(req: Request, context: ParamsType) {
   const { id } = await context.params;
 
   try {
-    const data = await req.json();
+    const body = await req.json();
 
     const writer = await prisma.writer.update({
       where: { id: Number(id) },
       data: {
-        name: data.name,
-        image: data.image ?? null,
+        name: body.name,
+        image: body.image ?? null,
+
+        products: body.products
+          ? {
+              connect: body.products.map((p: any) => ({
+                id: Number(p.id),
+              })),
+            }
+          : undefined,
+      },
+      select: {
+        id: true,
+        name: true,
+        image: true,
+        createdAt: true,
+        updatedAt: true,
+        _count: {
+          select: { products: true },
+        },
       },
     });
 
     return NextResponse.json(writer);
-  } catch (error) {
-    return NextResponse.json({ error: "Failed to update writer" }, { status: 500 });
+  } catch (err) {
+    return NextResponse.json(
+      { error: "Failed to update writer" },
+      { status: 500 }
+    );
   }
 }
 
-export async function DELETE(req: Request, context: { params: Promise<{ id: string }> }) {
+// DELETE writer
+export async function DELETE(req: Request, context: ParamsType) {
   const { id } = await context.params;
 
   try {
@@ -48,7 +90,10 @@ export async function DELETE(req: Request, context: { params: Promise<{ id: stri
     });
 
     return NextResponse.json({ message: "Writer deleted successfully" });
-  } catch (error) {
-    return NextResponse.json({ error: "Failed to delete writer" }, { status: 500 });
+  } catch (err) {
+    return NextResponse.json(
+      { error: "Failed to delete writer" },
+      { status: 500 }
+    );
   }
 }

@@ -54,16 +54,10 @@ export default function CategoryManager({
 
     try {
       if (editing) {
-        await onUpdate(editing.id, {
-          name: form.name,
-          image: form.image,
-        });
+        await onUpdate(editing.id, { name: form.name });
         toast.success("Category updated");
       } else {
-        await onCreate({
-          name: form.name,
-          image: form.image,
-        });
+        await onCreate({ name: form.name });
         toast.success("Category created");
       }
 
@@ -101,7 +95,7 @@ export default function CategoryManager({
 
       {/* Top Bar */}
       <div className="flex justify-between gap-3 items-center mb-8">
-        <div className="relative w-64">
+        <div className="relative w-64 border border-[#2C4A3B] rounded-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
           <Input
             placeholder="ক্যাটাগরি খুঁজুন..."
@@ -126,16 +120,26 @@ export default function CategoryManager({
             <Card key={cat.id} className="shadow">
               <div className="h-40 bg-gray-100 flex justify-center items-center">
                 {cat.image ? (
-                  <img src={cat.image} className="h-full w-full object-cover" />
+                  <img
+                    src={cat.image}
+                    className="h-full w-full object-cover"
+                    alt={cat.name}
+                  />
                 ) : (
-                  <Grid2X2 className="h-16 w-16 text-gray-400" />
+                  <img
+                    src="/assets/categories.png"
+                    alt="Default category"
+                    className="h-full w-full object-contain p-4"
+                  />
                 )}
               </div>
 
               <CardContent className="p-5">
                 <h3 className="text-xl font-semibold">{cat.name}</h3>
+
+                {/* 🔥 Updated: only count */}
                 <p className="text-gray-500 text-sm mb-4">
-                  Total Products: {(cat.products || []).length}
+                  Total Products: {cat._count?.products || 0}
                 </p>
 
                 <div className="flex gap-2">

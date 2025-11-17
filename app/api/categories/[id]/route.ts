@@ -1,34 +1,41 @@
+// app/api/categories/[id]/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-export async function PUT(req: Request, { params }: any) {
+type ParamType = { params: Promise<{ id: string }> };
+
+export async function PUT(req: Request, context: ParamType) {
   try {
-    const id = Number(params.id);
+    const { id } = await context.params;
     const body = await req.json();
 
     const category = await prisma.category.update({
-      where: { id },
-      data: {
-        name: body.name,
-      },
+      where: { id: Number(id) },
+      data: { name: body.name },
     });
 
     return NextResponse.json(category);
   } catch (error) {
-    return NextResponse.json({ error: "Failed to update category" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to update category" },
+      { status: 500 }
+    );
   }
 }
 
-export async function DELETE(req: Request, { params }: any) {
+export async function DELETE(req: Request, context: ParamType) {
   try {
-    const id = Number(params.id);
+    const { id } = await context.params;
 
     await prisma.category.delete({
-      where: { id },
+      where: { id: Number(id) },
     });
 
     return NextResponse.json({ message: "Category deleted" });
   } catch (error) {
-    return NextResponse.json({ error: "Failed to delete category" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to delete category" },
+      { status: 500 }
+    );
   }
 }

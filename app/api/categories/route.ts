@@ -1,3 +1,4 @@
+// app/api/categories/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
@@ -5,10 +6,23 @@ export async function GET() {
   try {
     const categories = await prisma.category.findMany({
       orderBy: { id: "desc" },
+      select: {
+        id: true,
+        name: true,
+        createdAt: true,
+        updatedAt: true,
+        _count: {
+          select: { products: true },
+        },
+      },
     });
+
     return NextResponse.json(categories);
   } catch (error) {
-    return NextResponse.json({ error: "Failed to fetch categories" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch categories" },
+      { status: 500 }
+    );
   }
 }
 
@@ -17,13 +31,14 @@ export async function POST(req: Request) {
     const body = await req.json();
 
     const category = await prisma.category.create({
-      data: {
-        name: body.name,
-      },
+      data: { name: body.name },
     });
 
     return NextResponse.json(category);
   } catch (error) {
-    return NextResponse.json({ error: "Failed to create category" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to create category" },
+      { status: 500 }
+    );
   }
 }

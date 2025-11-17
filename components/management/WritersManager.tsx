@@ -12,8 +12,6 @@ import {
   BookOpen,
   Users,
   Search,
-  Image as ImageIcon,
-  Star,
   Zap,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -130,7 +128,7 @@ export default function WritersManager({
                 <p className="text-sm text-gray-600">মোট বই</p>
                 <h3 className="text-2xl font-bold">
                   {writers?.reduce(
-                    (acc: number, w: any) => acc + w.books_count,
+                    (acc: number, w: any) => acc + (w._count?.products || 0),
                     0
                   ) || 0}
                 </h3>
@@ -210,9 +208,13 @@ export default function WritersManager({
                     {writer.name}
                   </h3>
 
-                  <p className="text-gray-600 text-sm mb-4">ID: {writer.id}</p>
+                  {/* ✔ Updated: Only count */}
+                  <div className="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full">
+                    <BookOpen className="h-3 w-3 text-gray-500" /> Total Books:
+                    <span>{writer._count?.products || 0}</span>
+                  </div>
 
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 mt-3">
                     <Button
                       onClick={() => openEditModal(writer)}
                       variant="outline"
