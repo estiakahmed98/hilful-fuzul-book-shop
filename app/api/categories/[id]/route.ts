@@ -1,17 +1,16 @@
-// app/api/categories/[id]/route.ts
+// api/categories/[id]/route.ts
+
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-type ParamType = { params: Promise<{ id: string }> };
-
-export async function PUT(req: Request, context: ParamType) {
+export async function PUT(req: Request, { params }: any) {
   try {
-    const { id } = await context.params;
-    const body = await req.json();
+    const { name } = await req.json();
+    const id = Number(params.id);
 
     const category = await prisma.category.update({
-      where: { id: Number(id) },
-      data: { name: body.name },
+      where: { id },
+      data: { name },
     });
 
     return NextResponse.json(category);
@@ -23,13 +22,11 @@ export async function PUT(req: Request, context: ParamType) {
   }
 }
 
-export async function DELETE(req: Request, context: ParamType) {
+export async function DELETE(req: Request, { params }: any) {
   try {
-    const { id } = await context.params;
+    const id = Number(params.id);
 
-    await prisma.category.delete({
-      where: { id: Number(id) },
-    });
+    await prisma.category.delete({ where: { id } });
 
     return NextResponse.json({ message: "Category deleted" });
   } catch (error) {

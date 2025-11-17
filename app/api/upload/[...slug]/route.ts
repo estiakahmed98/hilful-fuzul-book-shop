@@ -28,11 +28,11 @@ function guessContentType(ext: string) {
 /* ---------------- POST (UPLOAD) ---------------- */
 export async function POST(
   req: Request,
-  context: { params: { slug: string[] } }
+  { params }: { params: { slug: string[] } }
 ) {
   try {
-    // Get params from context
-    const { slug } = context.params;
+    // Get params (must be awaited in Next 15 dynamic routes)
+    const { slug } = await params;
     const relPath = slug.join("/");
 
     const form = await req.formData();
@@ -73,10 +73,10 @@ export async function POST(
 /* ---------------- GET (SERVE FILE) ---------------- */
 export async function GET(
   req: Request,
-  context: { params: { slug: string[] } }
+  { params }: { params: { slug: string[] } }
 ) {
   try {
-    const { slug } = context.params;
+    const { slug } = await params;
     const relPath = slug.join("/");
     
     if (relPath.includes("..")) {

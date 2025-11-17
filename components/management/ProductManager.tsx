@@ -71,7 +71,7 @@ export default function ProductManager({
 
   const handleDelete = async () => {
     if (!deletingProduct) return;
-    
+
     try {
       setIsDeleting(true);
       // Delete associated files first
@@ -80,7 +80,7 @@ export default function ProductManager({
       await onDelete(deletingProduct.id);
       toast.success("Product and all associated files deleted successfully");
     } catch (error) {
-      console.error('Error deleting product:', error);
+      console.error("Error deleting product:", error);
       toast.error("Failed to delete product");
     } finally {
       setIsDeleting(false);
@@ -91,19 +91,19 @@ export default function ProductManager({
   const deleteProductFiles = async (product: any) => {
     try {
       const filesToDelete = [];
-      
+
       // Add main image
       if (product.image) {
         filesToDelete.push(extractRelativePath(product.image));
       }
-      
+
       // Add gallery images
       if (product.gallery && product.gallery.length > 0) {
         product.gallery.forEach((img: string) => {
           filesToDelete.push(extractRelativePath(img));
         });
       }
-      
+
       // Add PDF if exists
       if (product.pdf) {
         filesToDelete.push(extractRelativePath(product.pdf));
@@ -111,14 +111,14 @@ export default function ProductManager({
 
       // Delete all files in parallel
       await Promise.all(
-        filesToDelete.map(filePath => 
+        filesToDelete.map((filePath) =>
           fetch(`/api/delete-file?path=${encodeURIComponent(filePath)}`, {
-            method: 'DELETE'
+            method: "DELETE",
           })
         )
       );
     } catch (error) {
-      console.error('Error deleting product files:', error);
+      console.error("Error deleting product files:", error);
       // Continue with product deletion even if file deletion fails
     }
   };
@@ -129,7 +129,7 @@ export default function ProductManager({
       return urlObj.pathname; // Returns path like "/upload/products/filename.jpg"
     } catch (e) {
       // If it's not a full URL, return as is (might be a relative path already)
-      return url.startsWith('/') ? url : `/${url}`;
+      return url.startsWith("/") ? url : `/${url}`;
     }
   };
 
@@ -142,18 +142,21 @@ export default function ProductManager({
             <AlertDialogHeader>
               <AlertDialogTitle>Are you sure?</AlertDialogTitle>
               <AlertDialogDescription>
-                This will permanently delete the product "{deletingProduct?.name}" and all its associated files (images, PDFs, etc.).
-                This action cannot be undone.
+                This will permanently delete the product "
+                {deletingProduct?.name}" and all its associated files (images,
+                PDFs, etc.). This action cannot be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-              <AlertDialogAction 
+              <AlertDialogCancel disabled={isDeleting}>
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
                 onClick={handleDelete}
                 disabled={isDeleting}
                 className="bg-red-600 hover:bg-red-700"
               >
-                {isDeleting ? 'Deleting...' : 'Delete Permanently'}
+                {isDeleting ? "Deleting..." : "Delete Permanently"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -293,11 +296,15 @@ export default function ProductManager({
                 </div>
 
                 <CardContent className="p-5">
-                  <h3 className="font-bold text-xl text-gray-800 mb-1">{p.name}</h3>
+                  <h3 className="font-bold text-xl text-gray-800 mb-1">
+                    {p.name}
+                  </h3>
 
-                  <p className="text-gray-600 text-sm mb-3">
-                    Category: {p.category?.name || 'No category'}
-                  </p>
+                  <div className="space-y-1 mb-3 text-sm text-gray-600">
+                    <p>Category: {p.category?.name || "No category"}</p>
+                    <p>Writer: {p.writer?.name || "No writer"}</p>
+                    <p>Publisher: {p.publisher?.name || "No publisher"}</p>
+                  </div>
 
                   <p className="text-gray-600 text-sm">Price: ৳{p.price}</p>
 

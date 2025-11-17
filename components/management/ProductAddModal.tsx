@@ -1,6 +1,8 @@
+//components/management/ProductAddModal.tsx
+
 "use client";
 
-import { useState, useEffect, ChangeEvent } from "react";
+import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -33,7 +35,7 @@ interface Entity {
 interface ProductAddModalProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: any) => Promise<void>;
+  onSubmit: (idOrData: any, data?: any) => Promise<void>;
   editing?: ProductForm | null;
   writers: Entity[];
   publishers: Entity[];
@@ -176,7 +178,7 @@ export default function ProductAddModal({
     setLoading(true);
 
     try {
-      await onSubmit({
+      const payload = {
         ...form,
         price: Number(form.price),
         original_price: Number(form.original_price) || null,
@@ -189,7 +191,15 @@ export default function ProductAddModal({
         image: form.image,
         gallery: form.gallery,
         pdf: form.pdf,
-      });
+      };
+
+      if (editing) {
+        // When editing, pass the product ID and payload to match updateProduct(id, data)
+        await onSubmit((editing as any).id, payload);
+      } else {
+        // When creating, only send the payload to match createProduct(data)
+        await onSubmit(payload);
+      }
 
       toast.success(editing ? "Product Updated!" : "Product Added!");
       onClose();

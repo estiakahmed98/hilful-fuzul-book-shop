@@ -1,4 +1,5 @@
-// app/api/categories/route.ts
+// api/categories/route.ts
+
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
@@ -6,18 +7,17 @@ export async function GET() {
   try {
     const categories = await prisma.category.findMany({
       orderBy: { id: "desc" },
-      select: {
-        id: true,
-        name: true,
-        createdAt: true,
-        updatedAt: true,
-        _count: {
-          select: { products: true },
-        },
+      include: {
+        _count: { select: { products: true } },
       },
     });
 
-    return NextResponse.json(categories);
+    const formatted = categories.map((c) => ({
+      ...c,
+      productCount: c._count.products,
+    }));
+
+    return NextResponse.json(formatted);
   } catch (error) {
     return NextResponse.json(
       { error: "Failed to fetch categories" },
@@ -28,10 +28,10 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
+    const { name } = await req.json();
 
     const category = await prisma.category.create({
-      data: { name: body.name },
+      data: { name },
     });
 
     return NextResponse.json(category);
