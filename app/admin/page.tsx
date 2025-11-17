@@ -1,11 +1,9 @@
-import React from "react";
+import AdminDashboard from "@/components/admin/AdminDashboard";
 
-const Page = () => {
+export default function AdminPage() {
   return (
-    <div className="flex h-screen w-full justify-center text-5xl">
-      Admin Dashboard
+    <div className="min-h-screen bg-gradient-to-br from-[#fbfff3] to-[#ebffe5]">
+      <AdminDashboard />
     </div>
   );
-};
-
-export default Page;
+}

@@ -68,12 +68,10 @@ async function main() {
     const writer = await db.writer.upsert({
       where: { name: w.name },
       update: {
-        books_count: w.books_count,
         image: w.image,
       },
       create: {
         name: w.name,
-        books_count: w.books_count,
         image: w.image,
       },
     });
@@ -86,12 +84,10 @@ async function main() {
     const publisher = await db.publisher.upsert({
       where: { name: p.name },
       update: {
-        books_count: p.books_count,
         image: p.image,
       },
       create: {
         name: p.name,
-        books_count: p.books_count,
         image: p.image,
       },
     });
