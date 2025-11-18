@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import Image from "next/image";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { products } from "@/public/BookData";
@@ -24,15 +25,19 @@ interface Product {
   discount: number;
   writer: { name: string };
   image: string;
-  rating?: number;
-  isBestseller?: boolean;
-  isNew?: boolean;
+}
+
+interface RatingInfo {
+  averageRating: number;
+  totalReviews: number;
 }
 
 export default function CategoryBooks({ category }: { category: Category }) {
   const { addToCart } = useCart();
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
   const { data: session } = useSession();
+
+  const [ratings, setRatings] = useState<Record<string, RatingInfo>>({});
 
   // Show ALL products if category.id === "all"
   const categoryBooks =
@@ -43,6 +48,64 @@ export default function CategoryBooks({ category }: { category: Category }) {
         );
 
   const displayBooks = categoryBooks.slice(0, 8);
+
+  // 🔹 এই ক্যাটাগরির জন্য রিভিউ থেকে রেটিং লোড করি
+  useEffect(() => {
+    const fetchRatings = async () => {
+      try {
+        const ids = Array.from(
+          new Set(
+            displayBooks
+              .map((b) => Number(b.id))
+              .filter((id) => !!id && !Number.isNaN(id))
+          )
+        );
+
+        if (ids.length === 0) {
+          setRatings({});
+          return;
+        }
+
+        const results = await Promise.all(
+          ids.map(async (id) => {
+            try {
+              const res = await fetch(
+                `/api/reviews?productId=${id}&page=1&limit=1`
+              );
+
+              if (!res.ok) {
+                return { id, avg: 0, total: 0 };
+              }
+
+              const data = await res.json();
+              return {
+                id,
+                avg: Number(data.averageRating ?? 0),
+                total: Number(data.pagination?.total ?? 0),
+              };
+            } catch (err) {
+              console.error("Error fetching rating for product:", id, err);
+              return { id, avg: 0, total: 0 };
+            }
+          })
+        );
+
+        const map: Record<string, RatingInfo> = {};
+        for (const r of results) {
+          map[String(r.id)] = {
+            averageRating: r.avg,
+            totalReviews: r.total,
+          };
+        }
+        setRatings(map);
+      } catch (err) {
+        console.error("Error loading ratings:", err);
+      }
+    };
+
+    fetchRatings();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [category.id]);
 
   // 🔹 Wishlist toggle (with API)
   const toggleWishlist = async (product: Product) => {
@@ -103,7 +166,6 @@ export default function CategoryBooks({ category }: { category: Category }) {
           return;
         }
 
-        // const item = await res.json(); // চাইলে data ব্যবহার করতে পারিস
         addToWishlist(product.id);
         toast.success("উইশলিস্টে যোগ করা হয়েছে");
       }
@@ -143,26 +205,13 @@ export default function CategoryBooks({ category }: { category: Category }) {
         return;
       }
 
-      // API theke chaile response use korte paro
-      // const cartItem = await res.json();
-
-      // local context update (jodi useCart local state rakhe)
       addToCart(book.id);
-
       toast.success(`"${book.name}" কার্টে যোগ করা হয়েছে`);
     } catch (error) {
       console.error("Error adding to cart:", error);
       toast.error("কার্টে যোগ করতে সমস্যা হয়েছে");
     }
   };
-
-  // Generate random ratings and badges for demo
-  const getBookWithEnhancements = (book: Product, index: number): Product => ({
-    ...book,
-    rating: Math.random() * 2 + 3, // 3-5 stars
-    isBestseller: index % 3 === 0,
-    isNew: index % 4 === 0,
-  });
 
   return (
     <div className="mb-16">
@@ -195,7 +244,12 @@ export default function CategoryBooks({ category }: { category: Category }) {
       {/* Books Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
         {displayBooks.map((book: Product, index) => {
-          const enhancedBook = getBookWithEnhancements(book, index);
+          const ratingInfo = ratings[String(book.id)];
+          const avgRating = ratingInfo?.averageRating ?? 0;
+          const reviewCount = ratingInfo?.totalReviews ?? 0;
+
+          const isBestseller = index % 3 === 0;
+          const isNew = index % 4 === 0;
           const isWishlisted = isInWishlist(book.id);
 
           return (
@@ -205,17 +259,17 @@ export default function CategoryBooks({ category }: { category: Category }) {
             >
               {/* Badges */}
               <div className="absolute top-3 left-3 z-10 flex flex-col gap-2">
-                {enhancedBook.discount > 0 && (
+                {book.discount > 0 && (
                   <div className="bg-gradient-to-r from-[#819A91] to-[#A7C1A8] text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">
-                    {enhancedBook.discount}% ছাড়
+                    {book.discount}% ছাড়
                   </div>
                 )}
-                {enhancedBook.isBestseller && (
+                {isBestseller && (
                   <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">
                     বেস্টসেলার
                   </div>
                 )}
-                {enhancedBook.isNew && (
+                {isNew && (
                   <div className="bg-gradient-to-r from-emerald-500 to-green-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">
                     নতুন
                   </div>
@@ -270,22 +324,30 @@ export default function CategoryBooks({ category }: { category: Category }) {
 
               <CardContent className="p-5">
                 {/* Rating */}
-                <div className="flex items-center gap-1 mb-3">
-                  <div className="flex">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <Star
-                        key={star}
-                        className={`h-3 w-3 ${
-                          star <= Math.floor(enhancedBook.rating!)
-                            ? "fill-amber-400 text-amber-400"
-                            : "text-gray-300"
-                        }`}
-                      />
-                    ))}
-                  </div>
-                  <span className="text-xs text-gray-500 ml-1">
-                    ({enhancedBook.rating!.toFixed(1)})
-                  </span>
+                <div className="flex items-center gap-1 mb-3 min-h-[20px]">
+                  {reviewCount > 0 ? (
+                    <>
+                      <div className="flex">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <Star
+                            key={star}
+                            className={`h-3 w-3 ${
+                              star <= Math.round(avgRating)
+                                ? "fill-amber-400 text-amber-400"
+                                : "text-gray-300"
+                            }`}
+                          />
+                        ))}
+                      </div>
+                      <span className="text-xs text-gray-500 ml-1">
+                        ({avgRating.toFixed(1)} · {reviewCount} রিভিউ)
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-xs text-gray-400">
+                      এখনও কোন রিভিউ নেই
+                    </span>
+                  )}
                 </div>
 
                 {/* Book Title */}

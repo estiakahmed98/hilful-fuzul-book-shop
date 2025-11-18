@@ -205,7 +205,7 @@ export default function BookFairPage() {
           <div className="flex items-center justify-center gap-3 mb-4">
             <div className="w-2 h-12 bg-gradient-to-b from-[#819A91] to-[#A7C1A8] rounded-full"></div>
             <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-gray-800">
-              বইমেলা 2025
+              বইমেলা ২০২৫
             </h1>
             <Calendar className="h-8 w-8 md:h-10 md:w-10 text-[#819A91]" />
           </div>

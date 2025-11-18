@@ -35,6 +35,16 @@ import { Button } from "@/components/ui/button";
 import { useCart } from "@/components/ecommarce/CartContext";
 import { useWishlist } from "@/components/ecommarce/WishlistContext";
 
+// শুধু সার্চের জন্য মিনিমাল প্রোডাক্ট টাইপ
+interface ProductSummary {
+  id: number | string;
+  name: string;
+  writer?: {
+    name: string;
+  } | null;
+  image?: string | null;
+}
+
 export default function Header() {
   const pathname = usePathname();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -46,6 +56,14 @@ export default function Header() {
   const [isPending, setIsPending] = useState(false);
   const { data: session, status } = useSession();
   const router = useRouter();
+
+  // 🔍 সার্চ স্টেটগুলো
+  const [searchTerm, setSearchTerm] = useState("");
+  const [allProducts, setAllProducts] = useState<ProductSummary[]>([]);
+  const [searchResults, setSearchResults] = useState<ProductSummary[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const [hasLoadedProducts, setHasLoadedProducts] = useState(false);
 
   const handleAuthClick = async () => {
     if (status === "authenticated") {
@@ -75,6 +93,83 @@ export default function Header() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  // 🔁 হেডার মাউন্ট হলে একবারই /api/products থেকে সব বই লোড
+  useEffect(() => {
+    const loadProducts = async () => {
+      try {
+        setSearchLoading(true);
+        const res = await fetch("/api/products", { cache: "no-store" });
+        if (!res.ok) {
+          console.error("Failed to load products for search");
+          return;
+        }
+        const data = await res.json();
+        const mapped: ProductSummary[] = Array.isArray(data)
+          ? data.map((p: any) => ({
+              id: p.id,
+              name: p.name,
+              writer: p.writer ?? null,
+              image: p.image ?? null,
+            }))
+          : [];
+        setAllProducts(mapped);
+        setHasLoadedProducts(true);
+      } catch (err) {
+        console.error("Error loading products for search:", err);
+      } finally {
+        setSearchLoading(false);
+      }
+    };
+
+    loadProducts();
+  }, []);
+
+  // 🔎 searchTerm পরিবর্তন হলে লোকাল ফিল্টার
+  useEffect(() => {
+    if (!searchTerm || searchTerm.trim().length < 2 || !hasLoadedProducts) {
+      setSearchResults([]);
+      setShowSearchDropdown(false);
+      return;
+    }
+
+    const term = searchTerm.toLowerCase();
+    const filtered = allProducts
+      .filter((p) => p.name.toLowerCase().includes(term))
+      .slice(0, 8); // সর্বোচ্চ ৮টা সাজেশন
+
+    setSearchResults(filtered);
+    setShowSearchDropdown(filtered.length > 0);
+  }, [searchTerm, allProducts, hasLoadedProducts]);
+
+  // 🔁 বাইরে ক্লিক করলে ড্রপডাউন হাইড (optional simple version)
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest?.(".header-search-wrapper")) {
+        setShowSearchDropdown(false);
+      }
+    };
+    document.addEventListener("click", handler);
+    return () => document.removeEventListener("click", handler);
+  }, []);
+
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value);
+  };
+
+  const handleSelectProduct = (product: ProductSummary) => {
+    setSearchTerm("");
+    setShowSearchDropdown(false);
+    setIsMenuOpen(false);
+    router.push(`/kitabghor/books/${product.id}`);
+  };
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && searchResults.length > 0) {
+      handleSelectProduct(searchResults[0]);
+    }
+  };
+
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
   const toggleDropdown = () => setIsDropdownOpen((prev) => !prev);
 
@@ -102,7 +197,7 @@ export default function Header() {
         { name: "জামাতে মেশকাত", href: "/kowmi/meshkat", icon: BookOpen },
       ],
     },
-    { name: "বইমেলা 2025", href: "/kitabghor/book-fair", icon: CalendarCheck },
+    { name: "বইমেলা ২০২৫", href: "/kitabghor/book-fair", icon: CalendarCheck },
     { name: "ব্লগ", href: "/kitabghor/blogs", icon: Tag },
   ];
 
@@ -157,14 +252,55 @@ export default function Header() {
           </Link>
 
           {/* Search Bar - Desktop */}
-          <div className="hidden md:flex flex-1 max-w-md mx-8">
+          <div className="hidden md:flex flex-1 max-w-md mx-8 header-search-wrapper relative">
             <div className="relative w-full">
               <input
                 type="text"
+                value={searchTerm}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                onKeyDown={handleSearchKeyDown}
+                onFocus={() =>
+                  searchResults.length > 0 && setShowSearchDropdown(true)
+                }
                 placeholder="বই, লেখক বা বিষয় অনুসন্ধান করুন..."
                 className="w-full px-4 py-2 pl-10 rounded-full border border-[#D1D8BE] focus:outline-none focus:ring-2 focus:ring-[#2C4A3B] focus:border-transparent bg-[#EEEFE0] text-gray-800 placeholder-gray-500"
               />
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-500" />
+
+              {/* 🔽 সার্চ ড্রপডাউন */}
+              {showSearchDropdown && (
+                <div className="absolute mt-2 w-full bg-white rounded-xl shadow-lg border border-[#D1D8BE] max-h-80 overflow-auto z-50">
+                  {searchLoading && !hasLoadedProducts ? (
+                    <div className="px-4 py-3 text-sm text-gray-500">
+                      লোড হচ্ছে...
+                    </div>
+                  ) : searchResults.length === 0 ? (
+                    <div className="px-4 py-3 text-sm text-gray-500">
+                      কোন বই পাওয়া যায়নি
+                    </div>
+                  ) : (
+                    searchResults.map((book) => (
+                      <button
+                        key={book.id}
+                        type="button"
+                        onClick={() => handleSelectProduct(book)}
+                        className="w-full flex items-center px-4 py-2 text-left hover:bg-[#EEEFE0] transition-colors text-sm"
+                      >
+                        <div className="flex flex-col">
+                          <span className="font-medium text-gray-800">
+                            {book.name}
+                          </span>
+                          {book.writer?.name && (
+                            <span className="text-xs text-gray-500">
+                              লেখক: {book.writer.name}
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -315,14 +451,55 @@ export default function Header() {
       {isMenuOpen && (
         <div className="md:hidden bg-[#EEEFE0] shadow-inner">
           {/* Mobile Search */}
-          <div className="p-4 border-b border-[#D1D8BE]">
+          <div className="p-4 border-b border-[#D1D8BE] header-search-wrapper relative">
             <div className="relative">
               <input
                 type="text"
+                value={searchTerm}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                onKeyDown={handleSearchKeyDown}
+                onFocus={() =>
+                  searchResults.length > 0 && setShowSearchDropdown(true)
+                }
                 placeholder="বই, লেখক বা বিষয় অনুসন্ধান করুন..."
                 className="w-full px-4 py-2 pl-10 rounded-full border border-[#D1D8BE] focus:outline-none focus:ring-2 focus:ring-[#2C4A3B] bg-white text-gray-800"
               />
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-500" />
+
+              {/* 🔽 মোবাইল সার্চ ড্রপডাউন */}
+              {showSearchDropdown && (
+                <div className="absolute mt-2 w-full bg-white rounded-xl shadow-lg border border-[#D1D8BE] max-h-80 overflow-auto z-50">
+                  {searchLoading && !hasLoadedProducts ? (
+                    <div className="px-4 py-3 text-sm text-gray-500">
+                      লোড হচ্ছে...
+                    </div>
+                  ) : searchResults.length === 0 ? (
+                    <div className="px-4 py-3 text-sm text-gray-500">
+                      কোন বই পাওয়া যায়নি
+                    </div>
+                  ) : (
+                    searchResults.map((book) => (
+                      <button
+                        key={book.id}
+                        type="button"
+                        onClick={() => handleSelectProduct(book)}
+                        className="w-full flex items-center px-4 py-2 text-left hover:bg-[#EEEFE0] transition-colors text-sm"
+                      >
+                        <div className="flex flex-col">
+                          <span className="font-medium text-gray-800">
+                            {book.name}
+                          </span>
+                          {book.writer?.name && (
+                            <span className="text-xs text-gray-500">
+                              লেখক: {book.writer.name}
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
