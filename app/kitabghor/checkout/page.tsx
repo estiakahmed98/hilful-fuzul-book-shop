@@ -860,7 +860,7 @@ export default function CheckoutPage() {
                   অর্ডার ট্র্যাক করুন
                 </Button>
               </Link>
-              <Link href="/books">
+              <Link href="/kitabghor/books">
                 <Button
                   variant="outline"
                   className="w-full border-[#D1D8BE] text-[#2D4A3C] hover:bg-[#EEEFE0] rounded-xl"
