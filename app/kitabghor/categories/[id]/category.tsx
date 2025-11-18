@@ -44,6 +44,11 @@ type Category = {
   name: string;
 };
 
+interface RatingInfo {
+  averageRating: number;
+  totalReviews: number;
+}
+
 export default function CategoryPage({ params }: CategoryPageProps) {
   const { addToCart } = useCart();
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
@@ -53,8 +58,9 @@ export default function CategoryPage({ params }: CategoryPageProps) {
   const [categoryCount, setCategoryCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [ratings, setRatings] = useState<Record<string, RatingInfo>>({});
 
-  // ✅ Load single category + books
+  // ✅ Load single category + books + ratings
   useEffect(() => {
     const fetchCategoryData = async () => {
       try {
@@ -77,11 +83,57 @@ export default function CategoryPage({ params }: CategoryPageProps) {
         setCategory(data.category);
         setCategoryBooks(data.products);
 
-        // 2) all categories count (header info)
+        // 2) সব ক্যাটাগরি কাউন্ট (header info)
         const resAll = await fetch("/api/categories");
         if (resAll.ok) {
           const allCats: Category[] = await resAll.json();
           setCategoryCount(allCats.length);
+        }
+
+        // 3) এই ক্যাটাগরির বইগুলোর রেটিং লোড
+        const ids = Array.from(
+          new Set(
+            data.products
+              .map((b) => Number(b.id))
+              .filter((id) => !!id && !Number.isNaN(id))
+          )
+        );
+
+        if (ids.length > 0) {
+          const results = await Promise.all(
+            ids.map(async (id) => {
+              try {
+                const r = await fetch(
+                  `/api/reviews?productId=${id}&page=1&limit=1`
+                );
+
+                if (!r.ok) {
+                  return { id, avg: 0, total: 0 };
+                }
+
+                const rdata = await r.json();
+                return {
+                  id,
+                  avg: Number(rdata.averageRating ?? 0),
+                  total: Number(rdata.pagination?.total ?? 0),
+                };
+              } catch (err) {
+                console.error("Error fetching rating for product:", id, err);
+                return { id, avg: 0, total: 0 };
+              }
+            })
+          );
+
+          const map: Record<string, RatingInfo> = {};
+          for (const r of results) {
+            map[String(r.id)] = {
+              averageRating: r.avg,
+              totalReviews: r.total,
+            };
+          }
+          setRatings(map);
+        } else {
+          setRatings({});
         }
       } catch (err) {
         console.error(err);
@@ -94,11 +146,10 @@ export default function CategoryPage({ params }: CategoryPageProps) {
     fetchCategoryData();
   }, [params.id]);
 
-  // Fixed: deterministic enhancements
+  // শুধু badge গুলোর জন্য deterministic enhancement
   const getBookWithEnhancements = useCallback(
     (book: Book, index: number) => ({
       ...book,
-      rating: 4.2 + ((index * 0.1) % 0.8),
       isBestseller: index % 3 === 0,
       isNew: index % 4 === 0,
     }),
@@ -243,6 +294,10 @@ export default function CategoryPage({ params }: CategoryPageProps) {
               const enhancedBook = getBookWithEnhancements(book, index);
               const isWishlisted = isInWishlist(book.id);
 
+              const ratingInfo = ratings[String(book.id)];
+              const avgRating = ratingInfo?.averageRating ?? 0;
+              const reviewCount = ratingInfo?.totalReviews ?? 0;
+
               return (
                 <Card
                   key={book.id}
@@ -314,22 +369,30 @@ export default function CategoryPage({ params }: CategoryPageProps) {
 
                   <CardContent className="p-4 sm:p-5">
                     {/* Rating */}
-                    <div className="flex items-center gap-1 mb-3">
-                      <div className="flex">
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <Star
-                            key={star}
-                            className={`h-3 w-3 ${
-                              star <= Math.floor(enhancedBook.rating!)
-                                ? "fill-amber-400 text-amber-400"
-                                : "text-gray-300"
-                            }`}
-                          />
-                        ))}
-                      </div>
-                      <span className="text-xs text-gray-500 ml-1">
-                        ({enhancedBook.rating!.toFixed(1)})
-                      </span>
+                    <div className="flex items-center gap-1 mb-3 min-h-[18px]">
+                      {reviewCount > 0 ? (
+                        <>
+                          <div className="flex">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <Star
+                                key={star}
+                                className={`h-3 w-3 ${
+                                  star <= Math.round(avgRating)
+                                    ? "fill-amber-400 text-amber-400"
+                                    : "text-gray-300"
+                                }`}
+                              />
+                            ))}
+                          </div>
+                          <span className="text-xs text-gray-500 ml-1">
+                            ({avgRating.toFixed(1)} · {reviewCount} রিভিউ)
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-xs text-gray-400">
+                          এখনও কোন রিভিউ নেই
+                        </span>
+                      )}
                     </div>
 
                     {/* Book Title */}
