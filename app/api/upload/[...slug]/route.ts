@@ -53,9 +53,11 @@ export async function POST(
 
     await fs.writeFile(filepath, buffer);
 
+    // Return API URL so that Next.js always goes through our GET handler,
+    // which serves the real file bytes with the correct Content-Type.
     return NextResponse.json({ 
       success: true,
-      url: `/upload/${relPath}/${filename}` 
+      url: `/api/upload/${relPath}/${filename}` 
     });
   } catch (error) {
     console.error('Upload error:', error);
