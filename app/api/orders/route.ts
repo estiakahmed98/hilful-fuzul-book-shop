@@ -86,7 +86,8 @@ export async function GET(request: NextRequest) {
 //   country, district, area, address_details,
 //   payment_method,
 //   items: [{ productId: number, quantity: number }],
-//   transactionId?: string
+//   transactionId?: string,
+//   image?: string  // payment screenshot url
 // }
 export async function POST(request: NextRequest) {
   try {
@@ -106,8 +107,8 @@ export async function POST(request: NextRequest) {
       address_details,
       payment_method,
       items,
-      transactionId, // 🔹 body থেকে নিচ্ছি
-      image,         // 🔹 ⬅️ নতুন: payment screenshot URL (/upload/filename)
+      transactionId, // body থেকে নিচ্ছি
+      image,         // 🔥 payment screenshot URL (e.g. /upload/xxx.png)
     } = body;
 
     if (
@@ -186,7 +187,7 @@ export async function POST(request: NextRequest) {
     const shipping_cost = subtotal > 500 ? 0 : 60;
     const grand_total = subtotal + shipping_cost;
 
-    // 🔹 payment_method থেকে paymentStatus ঠিক করা
+    // payment_method থেকে paymentStatus ঠিক করা
     const paymentStatus: PaymentStatus =
       payment_method === "CashOnDelivery"
         ? PaymentStatus.UNPAID
@@ -209,9 +210,9 @@ export async function POST(request: NextRequest) {
         shipping_cost,
         grand_total,
         status: OrderStatus.PENDING,
-        paymentStatus,                // dynamic (PAID / UNPAID)
+        paymentStatus,                        // dynamic (PAID / UNPAID)
         transactionId: transactionId ?? null,
-        ...(image && { image }),      // 🔥 শুধু image থাকলে সেভ করবে
+        image: image ?? null,                 // ✅ সবসময় image ফিল্ডে সেট হচ্ছে
         orderItems: {
           create: orderItemsData,
         },

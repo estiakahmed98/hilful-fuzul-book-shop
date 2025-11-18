@@ -44,7 +44,10 @@ export default function CheckoutPage() {
     string | null
   >(null);
   // 🔹 uploaded URL (from /api/upload)
-  const [paymentScreenshotUrl, setPaymentScreenshotUrl] = useState<string | null>(null);
+  const [paymentScreenshotUrl, setPaymentScreenshotUrl] =
+    useState<string | null>(null);
+  // 🔹 upload progress
+  const [isUploadingScreenshot, setIsUploadingScreenshot] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
@@ -60,7 +63,8 @@ export default function CheckoutPage() {
         const users = await res.json();
         const current = users?.find(
           (u: any) =>
-            u?.id === (session.user as any).id || u?.email === session.user?.email
+            u?.id === (session.user as any).id ||
+            u?.email === session.user?.email
         );
         if (current) {
           setName(current.name || "");
@@ -103,6 +107,8 @@ export default function CheckoutPage() {
     formData.append("file", file);
 
     try {
+      setIsUploadingScreenshot(true);
+
       const res = await fetch("/api/upload", {
         method: "POST",
         body: formData,
@@ -112,17 +118,37 @@ export default function CheckoutPage() {
         const data = await res.json().catch(() => null);
         console.error("Screenshot upload failed:", data || res.statusText);
         toast.error("স্ক্রিনশট আপলোড করতে সমস্যা হয়েছে");
+        setPaymentScreenshotUrl(null);
         return;
       }
 
       const data = await res.json();
-      // /upload/filename.ext
-      setPaymentScreenshotUrl(data.url);
+      // 🔥 যেই key থাকুক না কেন, URL বের করার চেষ্টা করছি
+      const uploadedUrl =
+        (typeof data === "string" && data) ||
+        data?.url ||
+        data?.fileUrl ||
+        data?.path ||
+        data?.location ||
+        null;
+
+      if (!uploadedUrl) {
+        console.error("Upload response does not contain URL:", data);
+        toast.error("স্ক্রিনশটের URL পাওয়া যায়নি");
+        setPaymentScreenshotUrl(null);
+        return;
+      }
+
+      console.log("Uploaded screenshot URL:", uploadedUrl);
+      setPaymentScreenshotUrl(uploadedUrl);
       // চাইলে এখানে toast দিতে পারো
       // toast.success("স্ক্রিনশট আপলোড সম্পন্ন");
     } catch (err) {
       console.error("Screenshot upload error:", err);
       toast.error("স্ক্রিনশট আপলোড করতে সমস্যা হয়েছে");
+      setPaymentScreenshotUrl(null);
+    } finally {
+      setIsUploadingScreenshot(false);
     }
   };
 
@@ -192,7 +218,7 @@ export default function CheckoutPage() {
     </div>
   );
 
-  // ✅ এখানেই Orders API call করছি
+  // ✅ Orders API call
   const handlePlaceOrder = async () => {
     if (cartItems.length === 0) {
       toast.error("আপনার কার্ট খালি");
@@ -209,13 +235,19 @@ export default function CheckoutPage() {
       return;
     }
 
-    // paymentMethod থেকে paymentStatus নির্ধারণ
-    // bkash / nagad / rocket => PAID
-    // CashOnDelivery => UNPAID
+    // যদি অনলাইন পেমেন্ট হয় এবং স্ক্রিনশট দেওয়া হয় কিন্তু upload এখনও শেষ না হয়
+    if (
+      paymentMethod !== "CashOnDelivery" &&
+      paymentScreenshot &&
+      (!paymentScreenshotUrl || isUploadingScreenshot)
+    ) {
+      toast.error("স্ক্রিনশট আপলোড শেষ হওয়া পর্যন্ত অপেক্ষা করুন");
+      return;
+    }
+
     const computedPaymentStatus =
       paymentMethod === "CashOnDelivery" ? "UNPAID" : "PAID";
 
-    // frontend UI এর জন্য order data (আগের মতই + paymentStatus)
     const localInvoiceId = uuidv4();
 
     const uiOrderData = {
@@ -233,12 +265,11 @@ export default function CheckoutPage() {
         paymentMethod !== "CashOnDelivery" ? transactionId : null,
       total,
       createdAt: new Date().toISOString(),
-      paymentStatus: computedPaymentStatus, // 🔹 UI তে লাগবে
+      paymentStatus: computedPaymentStatus,
     };
 
-    // API payload -> /api/orders
     const items = cartItems.map((item) => ({
-      productId: item.productId ?? item.id, // cart item e jeta available
+      productId: item.productId ?? item.id,
       quantity: item.quantity,
     }));
 
@@ -255,9 +286,11 @@ export default function CheckoutPage() {
       items,
       transactionId:
         paymentMethod !== "CashOnDelivery" ? transactionId : null,
-      paymentStatus: computedPaymentStatus, 
-      image: paymentScreenshotUrl || null, 
+      paymentStatus: computedPaymentStatus, // backend ignore করলেও সমস্যা নেই
+      image: paymentScreenshotUrl || null, // ✅ এখান দিয়ে DB তে যাবে
     };
+
+    console.log("Order payload:", payload);
 
     try {
       const res = await fetch("/api/orders", {
@@ -339,9 +372,9 @@ export default function CheckoutPage() {
                       label="আপনার নাম *"
                       placeholder="আপনার সম্পূর্ণ নাম"
                       value={name}
-                      onChange={(
-                        e: React.ChangeEvent<HTMLInputElement>
-                      ) => setName(e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                        setName(e.target.value)
+                      }
                       className="bg-[#EEEFE0] border-[#D1D8BE] focus:border-[#819A91] text-[#2D4A3C] placeholder-[#2D4A3C]/50 transition-colors duration-300"
                     />
                     <LabeledInput
@@ -349,9 +382,9 @@ export default function CheckoutPage() {
                       label="মোবাইল নম্বর *"
                       placeholder="০১XXXXXXXXX"
                       value={mobile}
-                      onChange={(
-                        e: React.ChangeEvent<HTMLInputElement>
-                      ) => setMobile(e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                        setMobile(e.target.value)
+                      }
                       className="bg-[#EEEFE0] border-[#D1D8BE] focus:border-[#819A91] text-[#2D4A3C] placeholder-[#2D4A3C]/50 transition-colors duration-300"
                     />
                     <LabeledInput
@@ -359,9 +392,9 @@ export default function CheckoutPage() {
                       label="ইমেইল (ঐচ্ছিক)"
                       placeholder="আপনার ইমেইল ঠিকানা"
                       value={email}
-                      onChange={(
-                        e: React.ChangeEvent<HTMLInputElement>
-                      ) => setEmail(e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                        setEmail(e.target.value)
+                      }
                       className="bg-[#EEEFE0] border-[#D1D8BE] focus:border-[#819A91] text-[#2D4A3C] placeholder-[#2D4A3C]/50 transition-colors duration-300 md:col-span-2"
                     />
                     <LabeledInput
@@ -369,9 +402,9 @@ export default function CheckoutPage() {
                       label="প্রাথমিক ঠিকানা *"
                       placeholder="বাড়ি নং, রোড নং, এলাকা"
                       value={location}
-                      onChange={(
-                        e: React.ChangeEvent<HTMLInputElement>
-                      ) => setLocation(e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                        setLocation(e.target.value)
+                      }
                       className="bg-[#EEEFE0] border-[#D1D8BE] focus:border-[#819A91] text-[#2D4A3C] placeholder-[#2D4A3C]/50 transition-colors duration-300 md:col-span-2"
                     />
                     <div className="space-y-2 md:col-span-2">
@@ -497,68 +530,79 @@ export default function CheckoutPage() {
                     ))}
                   </div>
 
-                  {paymentMethod &&
-                    paymentMethod !== "CashOnDelivery" && (
-                      <div className="bg-[#EEEFE0] rounded-xl p-6 mt-6 border border-[#D1D8BE]">
-                        <div className="flex items-center gap-3 mb-4">
-                          <CreditCard className="w-5 h-5 text-[#819A91]" />
-                          <h3 className="font-semibold text-[#2D4A3C]">
-                            পেমেন্ট নির্দেশনা
-                          </h3>
-                        </div>
-                        <p className="text-sm text-[#2D4A3C] mb-4">
-                          পেমেন্ট করুন এই নাম্বারে:{" "}
-                          <strong className="text-[#2D4A3C]">
-                            ০১৭XXXXXXXX
-                          </strong>
-                        </p>
-                        <LabeledInput
-                          id="transactionId"
-                          label="ট্রান্স্যাকশন আইডি *"
-                          placeholder="আপনার ট্রান্স্যাকশন আইডি লিখুন"
-                          value={transactionId}
-                          onChange={(
-                            e: React.ChangeEvent<HTMLInputElement>
-                          ) => setTransactionId(e.target.value)}
-                          className="bg-white border-[#D1D8BE] focus:border-[#819A91] text-[#2D4A3C] placeholder-[#2D4A3C]/50"
-                        />
-
-                        {/* Screenshot upload */}
-                        <div className="mt-4 space-y-2">
-                          <label className="text-sm font-medium text-[#2D4A3C]">
-                            পেমেন্ট স্ক্রিনশট
-                          </label>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={handleScreenshotChange}
-                            className="w-full text-sm text-[#2D4A3C] file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-[#819A91] file:text-white hover:file:bg-[#819A91]/90 cursor-pointer"
-                          />
-                          {(paymentScreenshotUrl || paymentScreenshotPreview) && (
-                            <div className="mt-3">
-                              <p className="text-xs text-[#2D4A3C]/70 mb-2">
-                                প্রিভিউ:
-                              </p>
-                              <div className="relative w-40 h-40 border border-[#D1D8BE] rounded-xl overflow-hidden bg-white">
-                                <Image
-                                  src={paymentScreenshotUrl || paymentScreenshotPreview!}
-                                  alt="Payment screenshot preview"
-                                  fill
-                                  className="object-cover"
-                                />
-                              </div>
-                            </div>
-                          )}
-                        </div>
+                  {paymentMethod && paymentMethod !== "CashOnDelivery" && (
+                    <div className="bg-[#EEEFE0] rounded-xl p-6 mt-6 border border-[#D1D8BE]">
+                      <div className="flex items-center gap-3 mb-4">
+                        <CreditCard className="w-5 h-5 text-[#819A91]" />
+                        <h3 className="font-semibold text-[#2D4A3C]">
+                          পেমেন্ট নির্দেশনা
+                        </h3>
                       </div>
-                    )}
+                      <p className="text-sm text-[#2D4A3C] mb-4">
+                        পেমেন্ট করুন এই নাম্বারে:{" "}
+                        <strong className="text-[#2D4A3C]">
+                          ০১৭XXXXXXXX
+                        </strong>
+                      </p>
+                      <LabeledInput
+                        id="transactionId"
+                        label="ট্রান্স্যাকশন আইডি *"
+                        placeholder="আপনার ট্রান্স্যাকশন আইডি লিখুন"
+                        value={transactionId}
+                        onChange={(
+                          e: React.ChangeEvent<HTMLInputElement>
+                        ) => setTransactionId(e.target.value)}
+                        className="bg-white border-[#D1D8BE] focus:border-[#819A91] text-[#2D4A3C] placeholder-[#2D4A3C]/50"
+                      />
+
+                      {/* Screenshot upload */}
+                      <div className="mt-4 space-y-2">
+                        <label className="text-sm font-medium text-[#2D4A3C]">
+                          পেমেন্ট স্ক্রিনশট
+                        </label>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleScreenshotChange}
+                          className="w-full text-sm text-[#2D4A3C] file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-[#819A91] file:text-white hover:file:bg-[#819A91]/90 cursor-pointer"
+                        />
+                        {(paymentScreenshotUrl ||
+                          paymentScreenshotPreview) && (
+                          <div className="mt-3">
+                            <p className="text-xs text-[#2D4A3C]/70 mb-2">
+                              প্রিভিউ:
+                            </p>
+                            <div className="relative w-40 h-40 border border-[#D1D8BE] rounded-xl overflow-hidden bg-white">
+                              <Image
+                                src={
+                                  paymentScreenshotUrl ||
+                                  paymentScreenshotPreview!
+                                }
+                                alt="Payment screenshot preview"
+                                fill
+                                className="object-cover"
+                              />
+                            </div>
+                          </div>
+                        )}
+                        {isUploadingScreenshot && (
+                          <p className="text-xs text-[#2D4A3C]/60 mt-1">
+                            স্ক্রিনশট আপলোড হচ্ছে...
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   {paymentMethod && (
                     <Button
                       className="w-full bg-[#819A91] hover:bg-[#819A91]/90 text-white py-3 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5 mt-6"
                       onClick={handlePlaceOrder}
+                      disabled={isUploadingScreenshot}
                     >
-                      অর্ডার প্লেস করুন
+                      {isUploadingScreenshot
+                        ? "স্ক্রিনশট আপলোড হচ্ছে..."
+                        : "অর্ডার প্লেস করুন"}
                     </Button>
                   )}
                 </div>
@@ -668,7 +712,6 @@ export default function CheckoutPage() {
                             {placedOrder.paymentMethod}
                           </span>
                         </p>
-                        {/* 🔹 এখানে Payment: Paid/Unpaid দেখাচ্ছি */}
                         <p>
                           <span className="text-[#2D4A3C]/80">
                             পেমেন্ট স্ট্যাটাস:
@@ -700,7 +743,10 @@ export default function CheckoutPage() {
                       </h4>
                       <div className="relative w-40 h-40 border border-[#D1D8BE] rounded-xl overflow-hidden bg-white">
                         <Image
-                          src={paymentScreenshotUrl || paymentScreenshotPreview!}
+                          src={
+                            paymentScreenshotUrl ||
+                            paymentScreenshotPreview!
+                          }
                           alt="Payment screenshot preview"
                           fill
                           className="object-cover"

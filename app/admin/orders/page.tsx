@@ -46,7 +46,7 @@ interface Order {
   status: OrderStatusType;
   paymentStatus: PaymentStatusType;
   transactionId?: string | null;
-  image?: string | null; // 🔹 payment screenshot URL
+  image?: string | null; // payment screenshot URL
   createdAt: string;
   orderItems?: OrderItem[];
   user?: {
@@ -84,6 +84,10 @@ const OrderManagement = () => {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // success modal
+  const [successOpen, setSuccessOpen] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string>("");
 
   // editable fields (order)
   const [editOrderStatus, setEditOrderStatus] =
@@ -238,7 +242,7 @@ const OrderManagement = () => {
         setEditPaymentStatus(orderData.paymentStatus);
         setEditTransactionId(orderData.transactionId || "");
 
-        // 2) Shipment (if any) -> use /api/shipments?orderId=...
+        // 2) Shipment (if any)
         const shipRes = await fetch(
           `/api/shipments?orderId=${selectedOrderId}&limit=1&page=1`,
           { cache: "no-store" }
@@ -254,16 +258,12 @@ const OrderManagement = () => {
             setEditShipmentStatus(found.status);
             setEditExpectedDate(
               found.expectedDate
-                ? new Date(found.expectedDate)
-                    .toISOString()
-                    .substring(0, 10)
+                ? new Date(found.expectedDate).toISOString().substring(0, 10)
                 : ""
             );
             setEditDeliveredDate(
               found.deliveredAt
-                ? new Date(found.deliveredAt)
-                    .toISOString()
-                    .substring(0, 10)
+                ? new Date(found.deliveredAt).toISOString().substring(0, 10)
                 : ""
             );
           } else {
@@ -302,13 +302,15 @@ const OrderManagement = () => {
     setDetailError(null);
   };
 
-  // ---- SAVE: ORDER ----
-  const saveOrderMeta = async () => {
+  // ---- UNIFIED SAVE: ORDER + SHIPMENT ----
+  const handleSaveAll = async () => {
     if (!orderDetail) return;
 
     try {
       setSaving(true);
-      const res = await fetch(`/api/orders/${orderDetail.id}`, {
+
+      // 1) Update Order
+      const orderRes = await fetch(`/api/orders/${orderDetail.id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -320,12 +322,12 @@ const OrderManagement = () => {
         }),
       });
 
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data?.error || "Order update failed");
+      const orderData = await orderRes.json().catch(() => ({}));
+      if (!orderRes.ok) {
+        throw new Error(orderData?.error || "Order update failed");
       }
 
-      // UI sync
+      // local order state sync
       setOrderDetail((prev) =>
         prev
           ? {
@@ -336,8 +338,6 @@ const OrderManagement = () => {
             }
           : prev
       );
-
-      // list এর মধ্যে থাকা মূল order আপডেট করি
       setOrders((prev) =>
         prev.map((o) =>
           o.id === orderDetail.id
@@ -349,25 +349,19 @@ const OrderManagement = () => {
             : o
         )
       );
-      alert("অর্ডার স্ট্যাটাস আপডেট হয়েছে ✅");
-    } catch (err: any) {
-      alert(err?.message || "Order update failed");
-    } finally {
-      setSaving(false);
-    }
-  };
 
-  // ---- SAVE: SHIPMENT ----
-  const saveShipment = async () => {
-    if (!orderDetail) return;
-
-    try {
-      setSaving(true);
-
+      // 2) Create / Update Shipment
       let savedShipment: Shipment | null = shipment;
 
-      // যদি shipment already থাকে -> PATCH
+      const hasShipmentInput =
+        editCourier ||
+        editTrackingNumber ||
+        editExpectedDate ||
+        editDeliveredDate ||
+        editShipmentStatus !== "PENDING";
+
       if (shipment) {
+        // PATCH existing shipment
         const res = await fetch(`/api/shipments/${shipment.id}`, {
           method: "PATCH",
           headers: {
@@ -395,11 +389,9 @@ const OrderManagement = () => {
           expectedDate: editExpectedDate || null,
           deliveredAt: editDeliveredDate || null,
         };
-
         setShipment(savedShipment);
-        alert("শিপমেন্ট তথ্য আপডেট হয়েছে ✅");
-      } else {
-        // otherwise -> POST (নতুন shipment)
+      } else if (hasShipmentInput) {
+        // POST new shipment (only if some shipment data is provided)
         const res = await fetch("/api/shipments", {
           method: "POST",
           headers: {
@@ -422,27 +414,24 @@ const OrderManagement = () => {
 
         savedShipment = data as Shipment;
         setShipment(savedShipment);
-        alert("নতুন শিপমেন্ট তৈরি হয়েছে ✅");
       }
 
-      // 🔥 যদি shipment status DELIVERED হয় -> order status-ও DELIVERED করে দাও
+      // 3) Auto: shipment DELIVERED হলে order.status = DELIVERED করে দাও
       if (editShipmentStatus === "DELIVERED") {
         try {
-          const orderRes = await fetch(`/api/orders/${orderDetail.id}`, {
+          const autoRes = await fetch(`/api/orders/${orderDetail.id}`, {
             method: "PATCH",
             headers: {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              status: "DELIVERED", // শুধু status, paymentStatus টাচ করছি না
+              status: "DELIVERED",
             }),
           });
 
-          const orderData = await orderRes.json().catch(() => ({}));
+          const autoData = await autoRes.json().catch(() => ({}));
 
-          if (!orderRes.ok) {
-            console.warn("Order status auto DELIVERED failed:", orderData);
-          } else {
+          if (autoRes.ok) {
             setOrderDetail((prev) =>
               prev ? { ...prev, status: "DELIVERED" } : prev
             );
@@ -451,13 +440,19 @@ const OrderManagement = () => {
                 o.id === orderDetail.id ? { ...o, status: "DELIVERED" } : o
               )
             );
+          } else {
+            console.warn("Order auto DELIVERED failed:", autoData);
           }
         } catch (e) {
           console.warn("Order auto-update error:", e);
         }
       }
+
+      // 4) Success modal দেখাও
+      setSuccessMessage("অর্ডার ও শিপমেন্ট তথ্য সফলভাবে আপডেট হয়েছে ✅");
+      setSuccessOpen(true);
     } catch (err: any) {
-      alert(err?.message || "Shipment save failed");
+      alert(err?.message || "আপডেট করতে সমস্যা হয়েছে");
     } finally {
       setSaving(false);
     }
@@ -837,7 +832,7 @@ const OrderManagement = () => {
                     </div>
                   </div>
 
-                  {/* 1.5 Payment Screenshot (image from orders API) */}
+                  {/* 1.5 Payment Screenshot */}
                   {orderDetail.image && (
                     <div className="rounded-2xl bg-gray-50 p-4">
                       <h3 className="mb-3 text-xs font-semibold text-gray-500">
@@ -855,8 +850,8 @@ const OrderManagement = () => {
                         <div className="text-xs text-gray-600 space-y-2">
                           <p>
                             গ্রাহক পেমেন্ট করার পর এই স্ক্রিনশট আপলোড করেছেন।
-                            প্রয়োজন হলে নিচের বাটন থেকে নতুন ট্যাবে বড় করে দেখতে
-                            পারবেন।
+                            প্রয়োজন হলে নিচের বাটন থেকে নতুন ট্যাবে বড় করে
+                            দেখতে পারবেন।
                           </p>
                           <a
                             href={orderDetail.image}
@@ -903,7 +898,7 @@ const OrderManagement = () => {
                       {orderDetail.orderItems?.map((item) => (
                         <div
                           key={item.id}
-                          className="flex items-center justify-between rounded-xl bg_WHITE px-3 py-2 text-xs bg-white"
+                          className="flex items-center justify-between rounded-xl bg-white px-3 py-2 text-xs"
                         >
                           <div>
                             <p className="font-semibold text-gray-800">
@@ -924,7 +919,7 @@ const OrderManagement = () => {
                       ))}
                     </div>
                     <div className="mt-3 border-t pt-2 text-xs text-gray-700">
-                      <div className="flex justify_between">
+                      <div className="flex justify-between">
                         <span>Subtotal</span>
                         <span>
                           ৳ {Number(orderDetail.total).toLocaleString("bn-BD")}
@@ -966,7 +961,7 @@ const OrderManagement = () => {
                               e.target.value as OrderStatusType
                             )
                           }
-                          className="w-full rounded-xl border border-gray-200 bg_WHITE px-2 py-2 text-xs bg-white"
+                          className="w-full rounded-xl border border-gray-200 bg-white px-2 py-2 text-xs"
                         >
                           <option value="PENDING">PENDING</option>
                           <option value="PROCESSING">PROCESSING</option>
@@ -984,7 +979,7 @@ const OrderManagement = () => {
                               e.target.value as PaymentStatusType
                             )
                           }
-                          className="w-full rounded-xl border border-gray-200 bg_WHITE px-2 py-2 text-xs bg-white"
+                          className="w-full rounded-xl border border-gray-200 bg-white px-2 py-2 text-xs"
                         >
                           <option value="PAID">PAID</option>
                           <option value="UNPAID">UNPAID</option>
@@ -998,18 +993,10 @@ const OrderManagement = () => {
                             setEditTransactionId(e.target.value)
                           }
                           placeholder="Bkash/Nagad txn id..."
-                          className="w-full rounded-xl border border-gray-200 bg_WHITE px-3 py-2 text-xs outline-none bg-white"
+                          className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs outline-none"
                         />
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={saveOrderMeta}
-                      disabled={saving}
-                      className="mt-3 rounded-full bg-[#1D3B2A] px-4 py-2 text-xs font-medium text_WHITE hover:bg-[#152a1f] disabled:opacity-60 text-white"
-                    >
-                      {saving ? "সেভ হচ্ছে..." : "অর্ডার আপডেট করুন"}
-                    </button>
                     <p className="mt-1 text-[10px] text-gray-500">
                       * এই অপশনগুলো শুধু admin সফলভাবে আপডেট করতে পারবে।
                     </p>
@@ -1032,11 +1019,10 @@ const OrderManagement = () => {
                       )}
                     </div>
 
-                    {/* যদি shipment না থাকে -> info */}
                     {!shipment && (
                       <p className="mb-3 text-[11px] text-gray-500">
                         এই অর্ডারের জন্য এখনো কোন shipment তৈরি হয়নি। নিচের
-                        ফর্ম পূরণ করে নতুন shipment create করতে পারবেন।
+                        ফর্ম পূরণ করে নতুন shipment তৈরি করতে পারবেন।
                       </p>
                     )}
 
@@ -1047,7 +1033,7 @@ const OrderManagement = () => {
                           value={editCourier}
                           onChange={(e) => setEditCourier(e.target.value)}
                           placeholder="SA Paribahan / Sundarban..."
-                          className="w-full rounded-xl border border-gray-200 bg_WHITE px-3 py-2 text-xs outline-none bg-white"
+                          className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs outline-none"
                         />
                       </div>
                       <div className="space-y-1 text-xs">
@@ -1058,7 +1044,7 @@ const OrderManagement = () => {
                             setEditTrackingNumber(e.target.value)
                           }
                           placeholder="tracking no..."
-                          className="w-full rounded-xl border border-gray-200 bg_WHITE px-3 py-2 text-xs outline-none bg-white"
+                          className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs outline-none"
                         />
                       </div>
                       <div className="space-y-1 text-xs">
@@ -1070,7 +1056,7 @@ const OrderManagement = () => {
                               e.target.value as ShipmentStatusType
                             )
                           }
-                          className="w-full rounded-xl border border-gray-200 bg_WHITE px-2 py-2 text-xs bg-white"
+                          className="w-full rounded-xl border border-gray-200 bg-white px-2 py-2 text-xs"
                         >
                           <option value="PENDING">PENDING</option>
                           <option value="IN_TRANSIT">IN_TRANSIT</option>
@@ -1091,7 +1077,7 @@ const OrderManagement = () => {
                           type="date"
                           value={editExpectedDate}
                           onChange={(e) => setEditExpectedDate(e.target.value)}
-                          className="w-full rounded-xl border border-gray-200 bg_WHITE px-3 py-2 text-xs outline-none bg-white"
+                          className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs outline-none"
                         />
                       </div>
                       <div className="space-y-1 text-xs">
@@ -1102,7 +1088,7 @@ const OrderManagement = () => {
                           onChange={(e) =>
                             setEditDeliveredDate(e.target.value)
                           }
-                          className="w-full rounded-xl border border-gray-200 bg_WHITE px-3 py-2 text-xs outline-none bg-white"
+                          className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs outline-none"
                         />
                       </div>
                       {shipment && (
@@ -1115,21 +1101,68 @@ const OrderManagement = () => {
                       )}
                     </div>
 
+                    <p className="mt-1 text-[10px] text-gray-500">
+                      * Shipment create/update করতে কেবল admin পারবে; অন্য
+                      ইউজার হলে API থেকে Forbidden আসবে।
+                    </p>
+                  </div>
+
+                  {/* unified save button */}
+                  <div className="pt-2 pb-4">
                     <button
                       type="button"
-                      onClick={saveShipment}
+                      onClick={handleSaveAll}
                       disabled={saving}
-                      className="mt-3 rounded-full bg-[#1D3B2A] px-4 py-2 text-xs font-medium text_WHITE hover:bg-[#152a1f] disabled:opacity-60 text-white"
+                      className="w-full rounded-full bg-[#1D3B2A] px-4 py-2 text-xs font-medium text-white hover:bg-[#152a1f] disabled:opacity-60"
                     >
                       {saving
                         ? "সেভ হচ্ছে..."
-                        : shipment
-                        ? "শিপমেন্ট আপডেট করুন"
-                        : "নতুন শিপমেন্ট তৈরি করুন"}
+                        : "অর্ডার ও শিপমেন্ট সব আপডেট সেভ করুন"}
                     </button>
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ✅ Success Modal */}
+      {successOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="w-full max-w-xs rounded-2xl bg-white px-5 py-4 shadow-xl">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                <svg
+                  className="h-5 w-5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                >
+                  <path
+                    d="M5 13l4 4L19 7"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-gray-900">
+                  আপডেট সফল হয়েছে
+                </p>
+                <p className="mt-0.5 text-xs text-gray-600">
+                  {successMessage || "তথ্যসমূহ সফলভাবে আপডেট করা হয়েছে।"}
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 flex justify-end">
+              <button
+                onClick={() => setSuccessOpen(false)}
+                className="rounded-full bg-[#1D3B2A] px-4 py-1.5 text-xs font-medium text-white hover:bg-[#152a1f]"
+              >
+                ঠিক আছে
+              </button>
             </div>
           </div>
         </div>
