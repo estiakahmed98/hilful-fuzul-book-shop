@@ -37,6 +37,7 @@ export default function CheckoutPage() {
   const [showModal, setShowModal] = useState(false);
   const { data: session } = useSession();
   const [prefilled, setPrefilled] = useState(false);
+  const [paymentGateways, setPaymentGateways] = useState<any[]>([]);
 
   // 🔹 payment screenshot
   const [paymentScreenshot, setPaymentScreenshot] = useState<File | null>(null);
@@ -53,39 +54,66 @@ export default function CheckoutPage() {
     setIsMounted(true);
   }, []);
 
+  // Load payment gateways from API
+  useEffect(() => {
+    const fetchGateways = async () => {
+      try {
+        const res = await fetch("/api/payment", { cache: "no-store" });
+        if (!res.ok) return;
+        const data = await res.json();
+        setPaymentGateways(Array.isArray(data.payments) ? data.payments : []);
+      } catch {
+        // silent
+      }
+    };
+
+    fetchGateways();
+  }, []);
+
   // Prefill from logged-in user
   useEffect(() => {
-    if (!session || prefilled) return;
+    if (!session || prefilled || !(session.user as any)?.id) return;
+
     const loadUser = async () => {
       try {
-        const res = await fetch("/api/users", { cache: "no-store" });
+        const userId = (session.user as any).id as string;
+        const res = await fetch(`/api/users/${userId}`, { cache: "no-store" });
         if (!res.ok) return;
-        const users = await res.json();
-        const current = users?.find(
-          (u: any) =>
-            u?.id === (session.user as any).id ||
-            u?.email === session.user?.email
-        );
+
+        const current = await res.json();
+
         if (current) {
+          // Basic fields
           setName(current.name || "");
           setMobile(current.phone || "");
           setEmail(current.email || "");
-          const addr = [
-            current.division,
-            current.district,
-            current.upazila,
-            current.union,
-          ]
-            .filter(Boolean)
-            .join(", ");
-          setLocation(addr);
-          setDeliveryAddress(addr);
+
+          // Address is stored as JSON; try to normalize into a single string
+          let addr = "";
+          const address = current.address as
+            | { addresses?: string[] }
+            | string
+            | null
+            | undefined;
+
+          if (Array.isArray((address as any)?.addresses)) {
+            addr = (address as any).addresses.join(", ");
+          } else if (typeof address === "string") {
+            addr = address;
+          }
+
+          if (addr) {
+            setLocation(addr);
+            setDeliveryAddress(addr);
+          }
+
           setPrefilled(true);
         }
       } catch {
         /* silent */
       }
     };
+
     loadUser();
   }, [session, prefilled]);
 
@@ -164,6 +192,20 @@ export default function CheckoutPage() {
   );
   const shipping = 60;
   const total = subtotal + shipping;
+
+  // Currently selected non-COD gateway based on paymentMethod
+  const selectedGateway = paymentGateways.find((p) => {
+    if (!paymentMethod || paymentMethod === "CashOnDelivery") return false;
+    const channel = (p as any)?.paymentGatewayData?.channel as string | undefined;
+    if (!channel) return false;
+    const slug = channel.toLowerCase().replace(/\s+/g, "");
+    return slug === paymentMethod;
+  });
+
+  const selectedGatewayAccounts =
+    ((selectedGateway as any)?.paymentGatewayData?.accountNumbers as
+      | string[]
+      | undefined) || [];
 
   const renderStepIndicator = () => (
     <div className="flex items-center justify-center gap-8 mb-12">
@@ -332,6 +374,14 @@ export default function CheckoutPage() {
     toast.success("অর্ডার সফলভাবে সম্পন্ন হয়েছে!");
   };
 
+  const handleGoToPaymentStep = () => {
+    if (!location.trim() || !deliveryAddress.trim()) {
+      toast.error("প্রাথমিক ঠিকানা এবং ডেলিভারি ঠিকানা পূরণ করুন");
+      return;
+    }
+    setStep("payment");
+  };
+
   if (!isMounted) return null;
 
   return (
@@ -428,7 +478,7 @@ export default function CheckoutPage() {
 
                   <Button
                     className="w-full bg-[#819A91] hover:bg-[#819A91]/90 text-white py-3 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5 mt-6"
-                    onClick={() => setStep("payment")}
+                    onClick={handleGoToPaymentStep}
                   >
                     পরবর্তী ধাপ
                   </Button>
@@ -457,30 +507,31 @@ export default function CheckoutPage() {
 
                   <div className="grid gap-4">
                     {[
-                      {
-                        id: "bkash",
-                        name: "বিকাশ",
-                        color: "bg-gradient-to-r from-pink-500 to-red-500",
-                      },
-                      {
-                        id: "nagad",
-                        name: "নগদ",
-                        color:
-                          "bg-gradient-to-r from-emerald-500 to-green-500",
-                      },
-                      {
-                        id: "rocket",
-                        name: "রকেট",
-                        color:
-                          "bg-gradient-to-r from-purple-500 to-indigo-500",
-                      },
+                      // Dynamic gateways from API
+                      ...paymentGateways
+                        .map((p) => {
+                          const channel = (p as any)?.paymentGatewayData
+                            ?.channel as string | undefined;
+                          if (!channel) return null;
+                          const slug = channel
+                            .toLowerCase()
+                            .replace(/\s+/g, "");
+                          return {
+                            id: slug,
+                            name: channel,
+                            color:
+                              "bg-gradient-to-r from-emerald-500 to-green-500",
+                          };
+                        })
+                        .filter(Boolean),
+                      // Always keep Cash On Delivery option
                       {
                         id: "CashOnDelivery",
                         name: "ক্যাশ অন ডেলিভারি",
                         color:
                           "bg-gradient-to-r from-[#A7C1A8] to-[#819A91]",
                       },
-                    ].map((method) => (
+                    ].map((method: any) => (
                       <div
                         key={method.id}
                         className={`border-2 rounded-xl p-4 cursor-pointer transition-all duration-300 ${
@@ -538,12 +589,23 @@ export default function CheckoutPage() {
                           পেমেন্ট নির্দেশনা
                         </h3>
                       </div>
-                      <p className="text-sm text-[#2D4A3C] mb-4">
-                        পেমেন্ট করুন এই নাম্বারে:{" "}
-                        <strong className="text-[#2D4A3C]">
-                          ০১৭XXXXXXXX
-                        </strong>
+                      <p className="text-sm text-[#2D4A3C] mb-2">
+                        পেমেন্ট করুন এই নাম্বারে:
                       </p>
+                      {selectedGatewayAccounts.length > 0 ? (
+                        <ul className="text-sm text-[#2D4A3C] mb-4 list-disc list-inside space-y-1">
+                          {selectedGatewayAccounts.map((acc, idx) => (
+                            <li key={idx}>
+                              <strong className="text-[#2D4A3C]">{acc}</strong>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-xs text-[#2D4A3C]/70 mb-4">
+                          কোনো অ্যাকাউন্ট নাম্বার পাওয়া যায়নি।
+                        </p>
+                      )}
+                      {/* Transaction ID input */}
                       <LabeledInput
                         id="transactionId"
                         label="ট্রান্স্যাকশন আইডি *"
@@ -552,10 +614,9 @@ export default function CheckoutPage() {
                         onChange={(
                           e: React.ChangeEvent<HTMLInputElement>
                         ) => setTransactionId(e.target.value)}
-                        className="bg-white border-[#D1D8BE] focus:border-[#819A91] text-[#2D4A3C] placeholder-[#2D4A3C]/50"
+                        className="bg-white border-[#D1D8BE] focus:border-[#819A91] text-[#2D4A3C] placeholder-[#2D4A3C]/50 mt-4"
                       />
 
-                      {/* Screenshot upload */}
                       <div className="mt-4 space-y-2">
                         <label className="text-sm font-medium text-[#2D4A3C]">
                           পেমেন্ট স্ক্রিনশট

@@ -461,16 +461,16 @@ const OrderManagement = () => {
   // ------------------- RENDER -------------------
 
   return (
-    <div className="min-h-screen w-full bg-[#F4F7ED] px-4 py-10">
-      <div className="mx-auto flex max-w-6xl flex-col gap-8">
+    <div className="min-h-screen w-full bg-[#F4F7ED] px-4 py-10 ">
+      <div className="flex-col gap-8">
         {/* Heading */}
-        <div className="text-center">
+        <div className="text-center mb-8 just">
           <h1 className="text-3xl font-semibold text-[#1D3B2A]">
             | অর্ডার ব্যবস্থাপনা |
           </h1>
           <p className="mt-2 text-sm text-gray-600">
-            আপনার লাইব্রেরির সকল অর্ডার দেখুন, স্ট্যাটাস আপডেট করুন এবং
-            শিপমেন্ট ট্র্যাক করুন
+            আপনার লাইব্রেরির সকল অর্ডার দেখুন, স্ট্যাটাস আপডেট করুন এবং শিপমেন্ট
+            ট্র্যাক করুন
           </p>
         </div>
 
@@ -555,11 +555,7 @@ const OrderManagement = () => {
                 stroke="currentColor"
               >
                 <circle cx="11" cy="11" r="6" strokeWidth="1.6" />
-                <path
-                  d="M16 16l4 4"
-                  strokeWidth="1.6"
-                  strokeLinecap="round"
-                />
+                <path d="M16 16l4 4" strokeWidth="1.6" strokeLinecap="round" />
               </svg>
               <input
                 value={search}
@@ -654,8 +650,7 @@ const OrderManagement = () => {
                           <span>মোট পণ্যের সংখ্যা</span>
                           <span className="font-semibold">
                             {order.orderItems?.reduce(
-                              (sum, item) =>
-                                sum + Number(item.quantity || 0),
+                              (sum, item) => sum + Number(item.quantity || 0),
                               0
                             ) || 0}
                           </span>
@@ -698,13 +693,13 @@ const OrderManagement = () => {
                         >
                           বিস্তারিত
                         </button>
-                        <button
+                        {/* <button
                           type="button"
                           className="rounded-full border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600"
                           disabled
                         >
                           ডিলিট
-                        </button>
+                        </button> */}
                       </div>
                     </div>
                   </div>
@@ -850,8 +845,8 @@ const OrderManagement = () => {
                         <div className="text-xs text-gray-600 space-y-2">
                           <p>
                             গ্রাহক পেমেন্ট করার পর এই স্ক্রিনশট আপলোড করেছেন।
-                            প্রয়োজন হলে নিচের বাটন থেকে নতুন ট্যাবে বড় করে
-                            দেখতে পারবেন।
+                            প্রয়োজন হলে নিচের বাটন থেকে নতুন ট্যাবে বড় করে দেখতে
+                            পারবেন।
                           </p>
                           <a
                             href={orderDetail.image}
@@ -929,18 +924,18 @@ const OrderManagement = () => {
                         <span>Shipping</span>
                         <span>
                           ৳{" "}
-                          {Number(
-                            orderDetail.shipping_cost
-                          ).toLocaleString("bn-BD")}
+                          {Number(orderDetail.shipping_cost).toLocaleString(
+                            "bn-BD"
+                          )}
                         </span>
                       </div>
                       <div className="mt-1 flex justify-between font-semibold">
                         <span>Grand Total</span>
                         <span>
                           ৳{" "}
-                          {Number(
-                            orderDetail.grand_total
-                          ).toLocaleString("bn-BD")}
+                          {Number(orderDetail.grand_total).toLocaleString(
+                            "bn-BD"
+                          )}
                         </span>
                       </div>
                     </div>
@@ -989,9 +984,7 @@ const OrderManagement = () => {
                         <p className="text-gray-600">Transaction ID</p>
                         <input
                           value={editTransactionId}
-                          onChange={(e) =>
-                            setEditTransactionId(e.target.value)
-                          }
+                          onChange={(e) => setEditTransactionId(e.target.value)}
                           placeholder="Bkash/Nagad txn id..."
                           className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs outline-none"
                         />
@@ -1021,8 +1014,8 @@ const OrderManagement = () => {
 
                     {!shipment && (
                       <p className="mb-3 text-[11px] text-gray-500">
-                        এই অর্ডারের জন্য এখনো কোন shipment তৈরি হয়নি। নিচের
-                        ফর্ম পূরণ করে নতুন shipment তৈরি করতে পারবেন।
+                        এই অর্ডারের জন্য এখনো কোন shipment তৈরি হয়নি। নিচের ফর্ম
+                        পূরণ করে নতুন shipment তৈরি করতে পারবেন।
                       </p>
                     )}
 
@@ -1085,9 +1078,7 @@ const OrderManagement = () => {
                         <input
                           type="date"
                           value={editDeliveredDate}
-                          onChange={(e) =>
-                            setEditDeliveredDate(e.target.value)
-                          }
+                          onChange={(e) => setEditDeliveredDate(e.target.value)}
                           className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs outline-none"
                         />
                       </div>
@@ -1102,8 +1093,8 @@ const OrderManagement = () => {
                     </div>
 
                     <p className="mt-1 text-[10px] text-gray-500">
-                      * Shipment create/update করতে কেবল admin পারবে; অন্য
-                      ইউজার হলে API থেকে Forbidden আসবে।
+                      * Shipment create/update করতে কেবল admin পারবে; অন্য ইউজার
+                      হলে API থেকে Forbidden আসবে।
                     </p>
                   </div>
 

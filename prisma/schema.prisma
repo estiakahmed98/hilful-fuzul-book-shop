@@ -7,7 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-
 model User {
   id            String    @id @default(cuid())
   email         String    @unique
@@ -40,26 +39,26 @@ model VerificationToken {
 }
 
 model Writer {
-  id          Int       @id @default(autoincrement())
-  name        String  @unique
-  image       String?
-  products    Product[]
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id        Int       @id @default(autoincrement())
+  name      String    @unique
+  image     String?
+  products  Product[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 }
 
 model Publisher {
-  id          Int       @id @default(autoincrement())
-  name        String  @unique
-  image       String?
-  products    Product[]
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id        Int       @id @default(autoincrement())
+  name      String    @unique
+  image     String?
+  products  Product[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 }
 
 model Category {
   id        Int       @id @default(autoincrement())
-  name      String  @unique
+  name      String    @unique
   products  Product[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -140,7 +139,14 @@ model Order {
   orderItems OrderItem[]
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
-  shipment   Shipment?   
+  shipment   Shipment?
+}
+
+model Payment {
+  id                  Int               @id @default(autoincrement())
+  paymentGatewayData  Json?             
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
 }
 
 model OrderItem {
@@ -202,6 +208,7 @@ model Blog {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
 enum ShipmentStatus {
   PENDING
   IN_TRANSIT
@@ -210,12 +217,13 @@ enum ShipmentStatus {
   RETURNED
   CANCELLED
 }
+
 model Shipment {
-  id             Int             @id @default(autoincrement())
-  orderId        Int             @unique
+  id             Int            @id @default(autoincrement())
+  orderId        Int            @unique
   courier        String
   trackingNumber String?
-  status         ShipmentStatus  @default(PENDING)
+  status         ShipmentStatus @default(PENDING)
   shippedAt      DateTime?
   expectedDate   DateTime?
   deliveredAt    DateTime?
