@@ -58,6 +58,7 @@
     "html2pdf.js": "^0.10.2",
     "input-otp": "^1.4.2",
     "jodit": "^4.2.47",
+    "jodit-react": "^5.2.38",
     "js-file-download": "^0.4.12",
     "jspdf": "^2.5.2",
     "jspdf-autotable": "^3.8.4",
