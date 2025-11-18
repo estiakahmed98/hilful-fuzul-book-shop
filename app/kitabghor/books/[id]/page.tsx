@@ -55,6 +55,12 @@ interface Product {
   pdf?: string;
 }
 
+// 🔹 review summary er jonno ছোট টাইপ
+interface ReviewSummary {
+  averageRating: number;
+  totalReviews: number;
+}
+
 export default function BookDetail() {
   const params = useParams();
   const bookId = params.id as string;
@@ -69,6 +75,12 @@ export default function BookDetail() {
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // 🔹 review summary state
+  const [reviewSummary, setReviewSummary] = useState<ReviewSummary | null>(
+    null
+  );
+  const [reviewLoading, setReviewLoading] = useState(false);
 
   // ✅ API theke book + related books load
   useEffect(() => {
@@ -115,6 +127,44 @@ export default function BookDetail() {
     fetchBookData();
   }, [bookId]);
 
+  // ✅ /api/reviews theke rating + totalReviews আনছি
+  useEffect(() => {
+    const fetchReviewSummary = async () => {
+      try {
+        setReviewLoading(true);
+        // ekdom প্রথম পেজ, 1 টা আইটেম নিলেই হবে – main কাজ avg + total
+        const res = await fetch(
+          `/api/reviews?productId=${bookId}&page=1&limit=1`
+        );
+        if (!res.ok) {
+          // error hole কিছু না দেখালেও চলবে (default 0 থাকবে)
+          return;
+        }
+
+        const data: any = await res.json();
+        const avg = typeof data.averageRating === "number"
+          ? data.averageRating
+          : 0;
+        const total =
+          data?.pagination?.total ??
+          (Array.isArray(data.reviews) ? data.reviews.length : 0);
+
+        setReviewSummary({
+          averageRating: avg,
+          totalReviews: total,
+        });
+      } catch (err) {
+        console.error("Error fetching review summary:", err);
+      } finally {
+        setReviewLoading(false);
+      }
+    };
+
+    if (bookId) {
+      fetchReviewSummary();
+    }
+  }, [bookId]);
+
   const handleQuantityChange = (value: number) => {
     if (!book) return;
     if (value >= 1 && value <= book.stock) {
@@ -139,6 +189,11 @@ export default function BookDetail() {
     addToCart(book.id, quantity);
     toast.success(`${quantity} টি "${book.name}" কার্টে যোগ করা হয়েছে`);
   };
+
+  // ⭐ rating summary values
+  const avgRating = reviewSummary?.averageRating ?? 0;
+  const totalReviews = reviewSummary?.totalReviews ?? 0;
+  const filledStars = Math.round(avgRating); // 0–5
 
   // 🔄 Loading state
   if (loading) {
@@ -249,21 +304,27 @@ export default function BookDetail() {
               {book.name}
             </h1>
 
-            {/* Rating */}
+            {/* Rating (🔹 এখন ডায়নামিক) */}
             <div className="flex items-center gap-3 mb-4">
               <div className="flex">
                 {[1, 2, 3, 4, 5].map((star) => (
                   <Star
                     key={star}
                     className={`h-5 w-5 ${
-                      star <= 4
+                      star <= filledStars
                         ? "text-amber-400 fill-amber-400"
                         : "text-gray-300"
                     }`}
                   />
                 ))}
               </div>
-              <span className="text-sm text-gray-600">(12 রিভিউ)</span>
+              <span className="text-sm text-gray-600">
+                {reviewLoading
+                  ? "রিভিউ লোড হচ্ছে..."
+                  : totalReviews > 0
+                  ? `(${totalReviews} রিভিউ, গড় ${avgRating.toFixed(1)})`
+                  : "(এখনও কোন রিভিউ নেই)"}
+              </span>
               <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
               <span className="text-sm text-gray-600">
                 {book.stock} পিস স্টকে
