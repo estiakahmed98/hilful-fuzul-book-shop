@@ -10,17 +10,8 @@ import { Trash2, ShoppingCart } from "lucide-react";
 import { useCart } from "@/components/ecommarce/CartContext";
 import { toast } from "sonner";
 
-interface Product {
-  id: number;
-  name: string;
-  price: number;
-  original_price: number;
-  discount: number;
-  image: string;
-}
-
 interface WishlistApiItem {
-  id: number;
+  id: number;        // wishlist row id
   productId: number;
   product: {
     id: number;
@@ -32,10 +23,21 @@ interface WishlistApiItem {
   };
 }
 
+// UI-তে আমরা যে টাইপ ব্যবহার করব
+interface WishlistProduct {
+  wishlistId: number; // wishlist table এর id
+  productId: number;  // product এর id
+  name: string;
+  price: number;
+  original_price: number;
+  discount: number;
+  image: string;
+}
+
 export default function WishlistPage() {
   const { addToCart } = useCart();
 
-  const [wishlistProducts, setWishlistProducts] = useState<Product[]>([]);
+  const [wishlistProducts, setWishlistProducts] = useState<WishlistProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -70,9 +72,10 @@ export default function WishlistPage() {
 
         const data = await res.json();
 
-        const items: Product[] = Array.isArray(data.items)
+        const items: WishlistProduct[] = Array.isArray(data.items)
           ? (data.items as WishlistApiItem[]).map((w) => ({
-              id: w.product.id,
+              wishlistId: w.id,                  // 👉 wishlist row id
+              productId: w.product.id,           // 👉 product id
               name: w.product.name,
               price: Number(w.product.price ?? 0),
               original_price: Number(
@@ -96,7 +99,7 @@ export default function WishlistPage() {
     fetchWishlist();
   }, []);
 
-  // 🔹 API + local state থেকে remove
+  // 🔹 API + local state থেকে remove (productId দিয়ে, কারণ API productId expect করে)
   const handleRemoveItem = async (productId: number) => {
     try {
       const res = await fetch(`/api/wishlist?productId=${productId}`, {
@@ -106,15 +109,17 @@ export default function WishlistPage() {
         },
       });
 
+      const data = await res.json().catch(() => null);
+
       if (!res.ok) {
-        const data = await res.json().catch(() => null);
         console.error("Failed to remove wishlist item:", data || res.statusText);
         toast.error("উইশলিস্ট থেকে সরাতে সমস্যা হয়েছে");
         return;
       }
 
+      // 👉 state থেকেও productId দিয়ে সরিয়ে দিচ্ছি
       setWishlistProducts((prev) =>
-        prev.filter((p) => p.id !== productId)
+        prev.filter((p) => p.productId !== productId)
       );
       toast.success("উইশলিস্ট থেকে সরানো হয়েছে");
     } catch (err) {
@@ -123,9 +128,10 @@ export default function WishlistPage() {
     }
   };
 
-  const handleAddToCart = (product: Product) => {
-    // তোমার CartContext এর অনুযায়ী এই কলটা ঠিক থাকলে কিছু পরিবর্তন লাগবে না
-    addToCart(product.id);
+  const handleAddToCart = (product: WishlistProduct) => {
+    // যদি তোমার CartContext শুধু productId চায়:
+    addToCart(product.productId);
+
     toast.success(`"${product.name}" কার্টে যোগ করা হয়েছে`);
   };
 
@@ -168,9 +174,9 @@ export default function WishlistPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {wishlistProducts.map((item) => (
-            <Card key={item.id} className="overflow-hidden">
+            <Card key={item.wishlistId} className="overflow-hidden">
               <div className="relative">
-                <Link href={`/kitabghor/books/${item.id}`}>
+                <Link href={`/kitabghor/books/${item.productId}`}>
                   <div className="relative h-64 w-full">
                     <Image
                       src={item.image || "/placeholder.svg"}
@@ -182,13 +188,13 @@ export default function WishlistPage() {
                 </Link>
                 <button
                   className="absolute top-2 right-2 bg-white rounded-full p-1.5 shadow-md hover:bg-red-50"
-                  onClick={() => handleRemoveItem(item.id as number)}
+                  onClick={() => handleRemoveItem(item.productId)}
                 >
                   <Trash2 className="h-4 w-4 text-red-500" />
                 </button>
               </div>
               <CardContent className="p-4">
-                <Link href={`/kitabghor/books/${item.id}`}>
+                <Link href={`/kitabghor/books/${item.productId}`}>
                   <h4 className="font-semibold text-lg mb-1 hover:text-primary transition-colors line-clamp-2">
                     {item.name}
                   </h4>
