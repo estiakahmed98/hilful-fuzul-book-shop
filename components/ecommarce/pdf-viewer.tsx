@@ -1,125 +1,139 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { pdfjs, Document, Page } from "react-pdf";
+// We no longer need react-pdf, pdfjs, Document, or Page
+// We keep Button and Loader2 as placeholders for your UI kit
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  "pdfjs-dist/build/pdf.worker.min.mjs",
-  import.meta.url
-).toString();
+// NOTE: All react-pdf logic has been removed to fix the "Could not resolve 'react-pdf'" error.
+// We are now using a simple <iframe> for native browser PDF viewing, which is highly reliable.
 
 interface PdfViewerProps {
   pdfUrl?: string;
 }
 
+// Helper component for error/loading messages
+const MessageOverlay = ({ children }: { children: React.ReactNode }) => (
+  <div className="absolute inset-0 bg-gray-50/70 backdrop-blur-sm flex items-center justify-center p-4 z-10">
+    <div className="text-center bg-white p-8 rounded-xl shadow-lg border border-gray-200">
+      {children}
+    </div>
+  </div>
+);
+
+
 export default function PdfViewer({ pdfUrl }: PdfViewerProps) {
-  const [numPages, setNumPages] = useState<number>(0);
-  const [pageNumber, setPageNumber] = useState<number>(1);
-  const [scale, setScale] = useState<number>(1.2);
+  // State variables related to react-pdf (like numPages, pageNumber, scale) are no longer needed
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [isClient, setIsClient] = useState(false);
+  
+  // State to handle iframe load status
+  const [isPdfLoaded, setIsPdfLoaded] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
   }, []);
 
-  const onLoadSuccess = ({ numPages }: { numPages: number }) => {
-    setNumPages(numPages);
-    setPageNumber(1);
+  // Simulate loading: In a real iframe, the browser handles loading.
+  // We use a small timeout to ensure the iframe has a chance to mount and load.
+  useEffect(() => {
+    if (pdfUrl && isClient) {
+      setIsLoading(true);
+      setError(null);
+      setIsPdfLoaded(false);
+      
+      const timer = setTimeout(() => {
+        // If the URL is provided, we assume loading starts.
+        // The iframe onload event will set isPdfLoaded to true.
+        setIsLoading(false);
+      }, 500); 
+
+      return () => clearTimeout(timer);
+    }
+  }, [pdfUrl, isClient]);
+
+  const handleIframeLoad = () => {
+    setIsPdfLoaded(true);
     setIsLoading(false);
-    setError(null);
+  };
+  
+  const handleIframeError = () => {
+      // Set an error state if the iframe load fails (e.g., cross-origin or file not found)
+      setError("পিডিএফ ফাইল লোড করা যায়নি। ফাইল লিঙ্ক বা CORS সেটিংস যাচাই করুন।");
+      setIsLoading(false);
   };
 
-  const onLoadError = (error: Error) => {
-    console.error("PDF load error:", error);
-    setError("PDF লোড করা যায়নি");
-    setIsLoading(false);
-  };
 
-  const goToPrevPage = () => setPageNumber((prev) => Math.max(prev - 1, 1));
-  const goToNextPage = () =>
-    setPageNumber((prev) => Math.min(prev + 1, numPages));
-  const zoomIn = () => setScale((prev) => prev + 0.2);
-  const zoomOut = () => setScale((prev) => Math.max(prev - 0.2, 0.6));
+  if (!isClient) {
+    return <MessageOverlay><Loader2 className="h-6 w-6 animate-spin text-blue-500" /></MessageOverlay>;
+  }
 
   if (!pdfUrl) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <p className="text-red-500">PDF URL পাওয়া যায়নি</p>
-      </div>
+      <MessageOverlay>
+        <p className="text-red-600 font-semibold">পিডিএফ URL পাওয়া যায়নি</p>
+        <p className="text-gray-500 text-sm mt-1">অনুগ্রহ করে একটি সঠিক ফাইল লিঙ্ক দিন।</p>
+      </MessageOverlay>
     );
   }
 
   return (
-    <div className="h-full w-full flex flex-col items-center justify-between">
-      <div className="flex gap-2 mb-2 flex-wrap justify-center">
-        <Button
-          variant="outline"
-          onClick={goToPrevPage}
-          disabled={pageNumber <= 1}
-        >
-          পূর্বের পৃষ্ঠা
-        </Button>
-        <Button
-          variant="outline"
-          onClick={goToNextPage}
-          disabled={pageNumber >= numPages}
-        >
-          পরের পৃষ্ঠা
-        </Button>
-        <Button variant="outline" onClick={zoomOut} disabled={scale <= 0.6}>
-          - জুম
-        </Button>
-        <Button variant="outline" onClick={zoomIn}>
-          + জুম
-        </Button>
-      </div>
-
-      <div className="flex-1 overflow-auto w-full flex justify-center items-center">
-        {error && (
-          <div className="text-center text-red-500">
-            <p>{error}</p>
-            <Button
-              variant="outline"
-              className="mt-2"
-              onClick={() => {
-                setIsLoading(true);
-                setError(null);
-              }}
-            >
-              আবার চেষ্টা করুন
-            </Button>
-          </div>
-        )}
-
-        <Document
-          file={pdfUrl}
-          onLoadSuccess={onLoadSuccess}
-          onLoadError={onLoadError}
-          loading={
-            <div className="flex flex-col items-center">
-              <Loader2 className="h-8 w-8 animate-spin" />
-              <p className="mt-2">লোড হচ্ছে...</p>
-            </div>
-          }
-        >
-          <Page
-            pageNumber={pageNumber}
-            scale={scale}
-            renderTextLayer={false}
-            renderAnnotationLayer={false}
-          />
-        </Document>
-      </div>
-
-      {!isLoading && !error && (
-        <p className="mt-2 text-sm text-muted-foreground">
-          পৃষ্ঠা {pageNumber} এর {numPages}
+    <div className="h-full w-full flex flex-col p-4 bg-gray-50 rounded-lg shadow-inner">
+      
+      {/* Controls (Disabled/Removed since the browser's native viewer handles them) */}
+      <div className="flex gap-3 mb-4 flex-wrap justify-center p-2 bg-white rounded-lg shadow-md border-b border-gray-200">
+        <p className="text-sm text-gray-500 italic">
+          আপনার ব্রাউজার স্বয়ংক্রিয়ভাবে পৃষ্ঠা এবং জুম নিয়ন্ত্রণ করবে।
         </p>
-      )}
+      </div>
+
+      {/* PDF Viewer Area */}
+      <div className="flex-1 relative overflow-hidden w-full flex justify-center items-start pt-0 custom-scrollbar rounded-xl border-4 border-gray-200 shadow-xl">
+        
+        {/* Loading and Error Overlays */}
+        {isLoading && (
+          <MessageOverlay>
+              <div className="flex flex-col items-center">
+                <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+                <p className="mt-3 text-gray-700 font-medium">পিডিএফ লোড হচ্ছে...</p>
+              </div>
+          </MessageOverlay>
+        )}
+        
+        {error && (
+          <MessageOverlay>
+              <div className="text-center text-red-600">
+                <p className="font-semibold mb-2">{error}</p>
+                <Button
+                  className="mt-2 bg-red-500 hover:bg-red-600"
+                  onClick={() => {
+    
+                    setIsLoading(true);
+                    setError(null);
+                  }}
+                >
+                  আবার চেষ্টা করুন
+                </Button>
+              </div>
+          </MessageOverlay>
+        )}
+        <iframe
+          src={pdfUrl}
+          title="PDF Viewer"
+          width="100%"
+          height="100%"
+          style={{ 
+            border: 'none', 
+            visibility: isPdfLoaded ? 'visible' : 'hidden'
+          }}
+          onLoad={handleIframeLoad}
+          onError={handleIframeError}
+          className="w-full h-full"
+        />
+      </div>
+      
     </div>
   );
 }
