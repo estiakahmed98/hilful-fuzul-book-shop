@@ -11,7 +11,7 @@ import { useCart } from "@/components/ecommarce/CartContext";
 import { toast } from "sonner";
 
 interface WishlistApiItem {
-  id: number;        // wishlist row id
+  id: number; // wishlist row id
   productId: number;
   product: {
     id: number;
@@ -26,7 +26,7 @@ interface WishlistApiItem {
 // UI-তে আমরা যে টাইপ ব্যবহার করব
 interface WishlistProduct {
   wishlistId: number; // wishlist table এর id
-  productId: number;  // product এর id
+  productId: number; // product এর id
   name: string;
   price: number;
   original_price: number;
@@ -37,12 +37,60 @@ interface WishlistProduct {
 export default function WishlistPage() {
   const { addToCart } = useCart();
 
-  const [wishlistProducts, setWishlistProducts] = useState<WishlistProduct[]>([]);
+  const [wishlistProducts, setWishlistProducts] = useState<WishlistProduct[]>(
+    []
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // 🔹 API থেকে wishlist ডেটা লোড
+  // 🔹 login check
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+
+  // 🔹 প্রথমে session চেক করি
   useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const res = await fetch("/api/auth/session", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          cache: "no-store",
+        });
+
+        if (!res.ok) {
+          setIsAuthenticated(false);
+          return;
+        }
+
+        const data = await res.json().catch(() => null);
+        if (data && data.user) {
+          setIsAuthenticated(true);
+        } else {
+          setIsAuthenticated(false);
+        }
+      } catch (err) {
+        console.error("Error checking auth session:", err);
+        setIsAuthenticated(false);
+      }
+    };
+
+    checkAuth();
+  }, []);
+
+  // 🔹 API থেকে wishlist ডেটা লোড (শুধু logged-in হলে)
+  useEffect(() => {
+    // auth state এখনও resolve না হলে কিছু করবো না
+    if (isAuthenticated === null) return;
+
+    // logged-in na hole wishlist load এর চেষ্টা করবো না
+    if (!isAuthenticated) {
+      setLoading(false);
+      setError("আপনার উইশলিস্ট দেখতে প্রথমে লগইন করতে হবে।");
+      setWishlistProducts([]);
+      return;
+    }
+
     const fetchWishlist = async () => {
       try {
         setLoading(true);
@@ -74,8 +122,8 @@ export default function WishlistPage() {
 
         const items: WishlistProduct[] = Array.isArray(data.items)
           ? (data.items as WishlistApiItem[]).map((w) => ({
-              wishlistId: w.id,                  // 👉 wishlist row id
-              productId: w.product.id,           // 👉 product id
+              wishlistId: w.id, // 👉 wishlist row id
+              productId: w.product.id, // 👉 product id
               name: w.product.name,
               price: Number(w.product.price ?? 0),
               original_price: Number(
@@ -97,10 +145,16 @@ export default function WishlistPage() {
     };
 
     fetchWishlist();
-  }, []);
+  }, [isAuthenticated]);
 
   // 🔹 API + local state থেকে remove (productId দিয়ে, কারণ API productId expect করে)
   const handleRemoveItem = async (productId: number) => {
+    // 🔐 login না থাকলে wishlist এর কিছুই করতে পারবে না
+    if (!isAuthenticated) {
+      toast.info("উইশলিস্ট ম্যানেজ করার জন্য আগে লগইন করুন।");
+      return;
+    }
+
     try {
       const res = await fetch(`/api/wishlist?productId=${productId}`, {
         method: "DELETE",
@@ -112,7 +166,10 @@ export default function WishlistPage() {
       const data = await res.json().catch(() => null);
 
       if (!res.ok) {
-        console.error("Failed to remove wishlist item:", data || res.statusText);
+        console.error(
+          "Failed to remove wishlist item:",
+          data || res.statusText
+        );
         toast.error("উইশলিস্ট থেকে সরাতে সমস্যা হয়েছে");
         return;
       }
@@ -129,11 +186,28 @@ export default function WishlistPage() {
   };
 
   const handleAddToCart = (product: WishlistProduct) => {
+    // 🔐 wishlist theke cart-e add করাও login ছাড়া allow করবো না
+    if (!isAuthenticated) {
+      toast.info("উইশলিস্ট থেকে কার্টে যোগ করতে আগে লগইন করুন।");
+      return;
+    }
+
     // যদি তোমার CartContext শুধু productId চায়:
     addToCart(product.productId);
 
     toast.success(`"${product.name}" কার্টে যোগ করা হয়েছে`);
   };
+
+  // auth resolve না হওয়া পর্যন্ত একটু loading দেখাই
+  if (isAuthenticated === null) {
+    return (
+      <div className="container mx-auto py-12 px-4">
+        <div className="text-center py-12 text-muted-foreground">
+          উইশলিস্ট লোড হচ্ছে...
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto py-12 px-4">
@@ -155,9 +229,14 @@ export default function WishlistPage() {
         <div className="text-center py-12">
           <h2 className="text-xl font-semibold mb-3">কিছু একটা সমস্যা হয়েছে</h2>
           <p className="text-muted-foreground mb-6">{error}</p>
-          <Link href="/">
-            <Button>হোম পেইজে ফিরে যান</Button>
-          </Link>
+          <div className="flex justify-center gap-3">
+            <Link href="/auth/login">
+              <Button>লগইন করুন</Button>
+            </Link>
+            <Link href="/">
+              <Button variant="outline">হোম পেইজে ফিরে যান</Button>
+            </Link>
+          </div>
         </div>
       ) : wishlistProducts.length === 0 ? (
         <div className="text-center py-12">
