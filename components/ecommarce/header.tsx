@@ -197,7 +197,7 @@ export default function Header() {
         { name: "জামাতে মেশকাত", href: "/kowmi/meshkat", icon: BookOpen },
       ],
     },
-    { name: "বইমেলা 2025", href: "/kitabghor/book-fair", icon: CalendarCheck },
+    { name: "বইমেলা ২০২৫", href: "/kitabghor/book-fair", icon: CalendarCheck },
     { name: "ব্লগ", href: "/kitabghor/blogs", icon: Tag },
   ];
 
