@@ -164,7 +164,7 @@ export default function PublishersManager({
         <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-4 gap-6">
           {filtered.map((pub: any) => (
             <Card key={pub.id} className="rounded-2xl shadow bg-white">
-              <div className="h-48 bg-gray-100 rounded-t-2xl overflow-hidden flex items-center justify-center">
+              <div className="h-48 bg-gray-100 rounded-t-2xl overflow-hidden flex itemsCenter justify-center">
                 {pub.image ? (
                   <img src={pub.image} className="w-full h-full object-cover" />
                 ) : (
@@ -209,7 +209,7 @@ export default function PublishersManager({
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
             <div className="p-6 border-b">
               <h2 className="text-2xl font-bold">
-                {editing ? "প্রকাশক আপডেট" : "নতুন প্রকাশক"}
+                {editing ? "прকাশক আপডেট" : "নতুন প্রকাশক"}
               </h2>
             </div>
 
@@ -221,6 +221,7 @@ export default function PublishersManager({
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                 />
               </div>
+
               <div>
                 <Label>ছবি আপলোড করুন</Label>
 
@@ -231,21 +232,57 @@ export default function PublishersManager({
                     const file = e.target.files?.[0];
                     if (!file) return;
 
+                    const folder = "publishers"; // 🔹 folder name
+
                     const fd = new FormData();
                     fd.append("file", file);
 
-                    toast.loading("Uploading...", { id: "upload" });
+                    try {
+                      toast.loading("Uploading...", { id: "upload-publisher" });
 
-                    const res = await fetch("/api/upload", {
-                      method: "POST",
-                      body: fd,
-                    });
+                      const res = await fetch(`/api/upload/${folder}`, {
+                        method: "POST",
+                        body: fd,
+                      });
 
-                    const data = await res.json();
+                      if (!res.ok) {
+                        throw new Error("Upload failed");
+                      }
 
-                    setForm({ ...form, image: data.fileUrl });
+                      const data = await res.json();
 
-                    toast.success("Upload complete!", { id: "upload" });
+                      // বিভিন্ন কী হ্যান্ডেল করি
+                      const rawUrl: string | undefined =
+                        data.fileUrl || data.url || data.path || data.location;
+
+                      if (!rawUrl) {
+                        throw new Error("Server did not return image URL");
+                      }
+
+                      let finalUrl = rawUrl;
+                      try {
+                        const base =
+                          typeof window !== "undefined"
+                            ? window.location.origin
+                            : "http://localhost";
+                        const url = new URL(rawUrl, base);
+                        const parts = url.pathname.split("/").filter(Boolean);
+                        const filename = parts[parts.length - 1];
+
+                        // final public API path
+                        finalUrl = `/api/upload/${folder}/${filename}`;
+                      } catch {
+                        // parse error হলে rawUrl ই ব্যবহার করব
+                      }
+
+                      setForm((prev) => ({ ...prev, image: finalUrl }));
+                      toast.success("Upload complete!", {
+                        id: "upload-publisher",
+                      });
+                    } catch (err) {
+                      console.error("Publisher image upload error:", err);
+                      toast.error("Upload failed!", { id: "upload-publisher" });
+                    }
                   }}
                 />
 
@@ -253,6 +290,7 @@ export default function PublishersManager({
                   <img
                     src={form.image}
                     className="w-20 h-20 mt-3 rounded-lg border object-cover"
+                    alt="Publisher image preview"
                   />
                 )}
               </div>
@@ -282,17 +320,20 @@ export default function PublishersManager({
             <div className="text-center">
               <Trash2 className="h-12 w-12 text-red-500 mx-auto mb-4" />
               <h3 className="text-xl font-bold mb-2">মুছে ফেলুন</h3>
-              <p className="text-gray-600 mb-6">আপনি কি নিশ্চিত যে আপনি এই প্রকাশকটিকে মুছে ফেলতে চান? এই কাজটি পূর্বাবস্থায় ফেরানো যাবে না।</p>
-              
+              <p className="text-gray-600 mb-6">
+                আপনি কি নিশ্চিত যে আপনি এই প্রকাশকটিকে মুছে ফেলতে চান? এই কাজটি
+                পূর্বাবস্থায় ফেরানো যাবে না।
+              </p>
+
               <div className="flex justify-center gap-4">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={() => setDeleteModalOpen(false)}
                   className="px-6"
                 >
                   বাতিল
                 </Button>
-                <Button 
+                <Button
                   onClick={confirmDelete}
                   className="bg-red-500 hover:bg-red-600 text-white px-6"
                 >

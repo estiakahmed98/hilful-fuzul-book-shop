@@ -56,9 +56,8 @@ interface Shipment {
   expectedDate?: string | null;
   deliveredAt?: string | null;
   createdAt?: string | null;
-  updatedAt?: string | null; // ⬅️ এটা যোগ করো (cancelled case-এ ব্যবহার করেছো)
+  updatedAt?: string | null; // cancelled case সহ অন্যান্য জায়গায় ব্যবহার হবে
 }
-
 
 const formatDate = (date: string | null | undefined) => {
   if (!date) return "Processing...";
@@ -77,8 +76,7 @@ const getOrderStatusConfig = (status: string) => {
   if (s === "DELIVERED") {
     return {
       label: "Delivered",
-      className:
-        "bg-emerald-100 text-emerald-800 border border-emerald-200",
+      className: "bg-emerald-100 text-emerald-800 border border-emerald-200",
     };
   }
   if (s === "SHIPPED" || s === "PROCESSING" || s === "CONFIRMED") {
@@ -111,8 +109,7 @@ const getPaymentStatusConfig = (paymentStatus: string) => {
   if (s === "PAID") {
     return {
       label: "Paid",
-      className:
-        "bg-emerald-50 text-emerald-700 border border-emerald-200",
+      className: "bg-emerald-50 text-emerald-700 border border-emerald-200",
     };
   }
   // default UNPAID / unknown
@@ -174,17 +171,66 @@ export default function OrderDetailsPage() {
 
         const o = await res.json();
 
-        // 🔹 API data → UI format এ map
-        const items: CartItem[] = Array.isArray(o.orderItems)
-          ? o.orderItems.map((oi: any) => ({
-              id: oi.id,
-              productId: oi.productId,
-              name: oi.product?.name ?? "Unknown product",
-              price: Number(oi.price ?? 0),
-              quantity: oi.quantity ?? 1,
-              image: oi.product?.image ?? "",
-            }))
+        // 🔹 raw orderItems
+        const orderItemsRaw: any[] = Array.isArray(o.orderItems)
+          ? o.orderItems
           : [];
+
+        // 🔹 unique productId গুলো বের করি
+        const uniqueProductIds = Array.from(
+          new Set(
+            orderItemsRaw
+              .map((oi) => Number(oi.productId))
+              .filter((id) => !!id && !Number.isNaN(id))
+          )
+        );
+
+        // 🔹 productId => image map বানাবো /api/products/[id] থেকে
+        const imageMap: Record<number, string> = {};
+
+        if (uniqueProductIds.length > 0) {
+          await Promise.all(
+            uniqueProductIds.map(async (pid) => {
+              try {
+                const pRes = await fetch(`/api/products/${pid}`, {
+                  method: "GET",
+                  headers: { "Content-Type": "application/json" },
+                  cache: "no-store",
+                });
+
+                if (!pRes.ok) return;
+                const pData = await pRes.json();
+                if (pData && pData.image) {
+                  imageMap[pid] = pData.image as string;
+                }
+              } catch (err) {
+                console.error(
+                  "Failed to fetch product for order item image:",
+                  pid,
+                  err
+                );
+              }
+            })
+          );
+        }
+
+        // 🔹 API data → UI format এ map
+        const items: CartItem[] = orderItemsRaw.map((oi: any) => {
+          const pidNum = Number(oi.productId);
+          const imageFromProducts =
+            (!Number.isNaN(pidNum) && imageMap[pidNum]) || "";
+          const fallbackImage = oi.product?.image ?? "";
+
+          return {
+            id: oi.id,
+            productId: oi.productId,
+            name: oi.product?.name ?? "Unknown product",
+            price: Number(oi.price ?? 0),
+            quantity: oi.quantity ?? 1,
+            // ✅ প্রাধান্য: /api/products/[id] থেকে আসা image → না থাকলে oi.product.image
+            image: imageFromProducts || fallbackImage,
+          };
+        });
 
         const mapped: Order = {
           invoiceId: String(o.id), // URL / My Orders এর সাথে match
@@ -261,6 +307,7 @@ export default function OrderDetailsPage() {
             expectedDate: s.expectedDate,
             deliveredAt: s.deliveredAt,
             createdAt: s.createdAt,
+            updatedAt: s.updatedAt,
           });
         }
       } catch (err) {
@@ -338,7 +385,9 @@ export default function OrderDetailsPage() {
       id: 2,
       label: "Shipped",
       description: shipment?.courier
-        ? `Handed over to courier (${shipment.courier})${shipment.trackingNumber ? `, Tracking: ${shipment.trackingNumber}` : ""}.`
+        ? `Handed over to courier (${shipment.courier})${
+            shipment.trackingNumber ? `, Tracking: ${shipment.trackingNumber}` : ""
+          }.`
         : "Order has been shipped from our warehouse.",
       dateLabel: formatDate(shipment?.shippedAt || shipment?.createdAt),
       icon: Package,
@@ -542,85 +591,86 @@ export default function OrderDetailsPage() {
               </div>
 
               <div className="space-y-6">
-               {stages.map((stage, index) => {
-  const IconComponent = stage.icon;
+                {stages.map((stage, index) => {
+                  const IconComponent = stage.icon;
 
-  const isActive = index <= activeStageIndex;
-  const isCurrent = index === activeStageIndex;
-  const isCompleted = index < activeStageIndex;
+                  const isActive = index <= activeStageIndex;
+                  const isCurrent = index === activeStageIndex;
+                  const isCompleted = index < activeStageIndex;
 
-  const circleBase =
-    "w-12 h-12 rounded-2xl border-2 flex items-center justify-center transition-all duration-300 group-hover:scale-110";
+                  const circleBase =
+                    "w-12 h-12 rounded-2xl border-2 flex items-center justify-center transition-all duration-300 group-hover:scale-110";
 
-  const circleClass = isActive
-    ? `${circleBase} ${getStatusColor(stage.color)}`
-    : `${circleBase} bg-white border-gray-300`;
+                  const circleClass = isActive
+                    ? `${circleBase} ${getStatusColor(stage.color)}`
+                    : `${circleBase} bg-white border-gray-300`;
 
-  const iconClass = isActive
-    ? `w-5 h-5 ${getIconColor(stage.color)}`
-    : "w-5 h-5 text-gray-400";
+                  const iconClass = isActive
+                    ? `w-5 h-5 ${getIconColor(stage.color)}`
+                    : "w-5 h-5 text-gray-400";
 
-  // 🔹 এখানে extra logic: Delivered stage + status DELIVERED হলে সরাসরি Completed
-  const shipmentStatus = shipment?.status?.toUpperCase();
-  const orderStatus = order.status?.toUpperCase();
-  const isDeliveredStage = stage.label === "Delivered";
-  const isDeliveredFinal =
-    shipmentStatus === "DELIVERED" || orderStatus === "DELIVERED";
+                  // 🔹 Delivered stage + status DELIVERED হলে সরাসরি Completed
+                  const shipmentStatus = shipment?.status?.toUpperCase();
+                  const orderStatus = order.status?.toUpperCase();
+                  const isDeliveredStage = stage.label === "Delivered";
+                  const isDeliveredFinal =
+                    shipmentStatus === "DELIVERED" ||
+                    orderStatus === "DELIVERED";
 
-  let badgeText = "Pending";
-  let badgeClass = "bg-gray-50 text-gray-600 border-gray-200";
+                  let badgeText = "Pending";
+                  let badgeClass =
+                    "bg-gray-50 text-gray-600 border-gray-200";
 
-  if (isCompleted || (isDeliveredStage && isDeliveredFinal)) {
-    // আগের স্টেপগুলো + Delivered final স্টেপ = Completed
-    badgeText = "Completed";
-    badgeClass = "bg-emerald-50 text-emerald-700 border-emerald-200";
-  } else if (isCurrent && isActive) {
-    // মাঝের/current স্টেপগুলোতে In Progress
-    badgeText = "In Progress";
-    badgeClass = "bg-blue-50 text-blue-700 border-blue-200";
-  }
+                  if (isCompleted || (isDeliveredStage && isDeliveredFinal)) {
+                    // আগের স্টেপগুলো + Delivered final স্টেপ = Completed
+                    badgeText = "Completed";
+                    badgeClass =
+                      "bg-emerald-50 text-emerald-700 border-emerald-200";
+                  } else if (isCurrent && isActive) {
+                    // মাঝের/current স্টেপগুলোতে In Progress
+                    badgeText = "In Progress";
+                    badgeClass =
+                      "bg-blue-50 text-blue-700 border-blue-200";
+                  }
 
-  return (
-    <div key={stage.id} className="flex gap-6 group">
-      {/* Timeline Line & Icon */}
-      <div className="flex flex-col items-center">
-        <div className={circleClass}>
-          <IconComponent className={iconClass} />
-        </div>
-        {index !== stages.length - 1 && (
-          <div className="flex-1 w-0.5 bg-gray-200 mt-2 mb-1" />
-        )}
-      </div>
+                  return (
+                    <div key={stage.id} className="flex gap-6 group">
+                      {/* Timeline Line & Icon */}
+                      <div className="flex flex-col items-center">
+                        <div className={circleClass}>
+                          <IconComponent className={iconClass} />
+                        </div>
+                        {index !== stages.length - 1 && (
+                          <div className="flex-1 w-0.5 bg-gray-200 mt-2 mb-1" />
+                        )}
+                      </div>
 
-      {/* Content */}
-      <div className="flex-1 pb-6">
-        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-3">
-          <div className="flex-1">
-            <p className="font-semibold text-gray-900 mb-1">
-              {stage.label}
-            </p>
-            <p className="text-gray-600 mb-2">
-              {stage.description}
-            </p>
-            <div className="flex items-center gap-2 text-sm text-gray-500">
-              <Calendar className="w-4 h-4" />
-              <span>{stage.dateLabel}</span>
-            </div>
-          </div>
+                      {/* Content */}
+                      <div className="flex-1 pb-6">
+                        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-3">
+                          <div className="flex-1">
+                            <p className="font-semibold text-gray-900 mb-1">
+                              {stage.label}
+                            </p>
+                            <p className="text-gray-600 mb-2">
+                              {stage.description}
+                            </p>
+                            <div className="flex items-center gap-2 text-sm text-gray-500">
+                              <Calendar className="w-4 h-4" />
+                              <span>{stage.dateLabel}</span>
+                            </div>
+                          </div>
 
-          <div
-            className={`
-              px-3 py-1 rounded-full text-xs font-medium border
-              ${badgeClass}
-            `}
-          >
-            {badgeText}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-})}
+                          <div
+                            className={`px-3 py-1 rounded-full text-xs font-medium border ${badgeClass}`}
+                          >
+                            {badgeText}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </Card>
 
