@@ -111,9 +111,42 @@ export default function AllBooksPage() {
     }
   };
 
-  const handleAddToCart = (book: Product) => {
-    addToCart(book.id);
-    toast.success(`"${book.name}" কার্টে যোগ করা হয়েছে`);
+  // 🔥 Updated: API + Context দুটোই
+  const handleAddToCart = async (book: Product) => {
+    try {
+      // ১) server-side cart এ যোগ করো
+      const res = await fetch("/api/cart", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          productId: book.id,
+          quantity: 1,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        const message = data?.error || "কার্টে যোগ করতে সমস্যা হয়েছে";
+        throw new Error(message);
+      }
+
+      // চাইলে cartItem data নিতেও পারো
+      // const cartItem = await res.json();
+
+      // ২) লোকাল cart context update
+      addToCart(book.id);
+
+      toast.success(`"${book.name}" কার্টে যোগ করা হয়েছে`);
+    } catch (err) {
+      console.error("Error adding to cart:", err);
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "কার্টে যোগ করতে সমস্যা হয়েছে"
+      );
+    }
   };
 
   const filteredBooks = products.filter((book) =>

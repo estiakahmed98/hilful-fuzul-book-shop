@@ -118,69 +118,84 @@ export default function CheckoutPage() {
   }, [session, prefilled]);
 
   // 🔹 screenshot handler (now uploads to /api/upload)
-  const handleScreenshotChange = async (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+const folder = "paymentScreenshot";
 
-    setPaymentScreenshot(file);
+ const handleScreenshotChange = async (
+  e: React.ChangeEvent<HTMLInputElement>
+) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
 
-    // Local preview (for instant UI feedback)
-    const url = URL.createObjectURL(file);
-    setPaymentScreenshotPreview(url);
+  // 👀 Local preview (instant UI feedback)
+  const previewUrl = URL.createObjectURL(file);
+  setPaymentScreenshot(file);
+  setPaymentScreenshotPreview(previewUrl);
 
-    // Upload to /api/upload
+  try {
+    setIsUploadingScreenshot(true);
+
+
+    // 1) File type check (image / pdf logic)
+    if (folder.includes("image") && !file.type.startsWith("image/")) {
+      throw new Error("Please upload a valid image file");
+    }
+    if (folder.includes("pdf") && file.type !== "application/pdf") {
+      throw new Error("Please upload a valid PDF file");
+    }
+
+    // 2) File size check (5MB max)
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSize) {
+      throw new Error("File size should be less than 5MB");
+    }
     const formData = new FormData();
     formData.append("file", file);
 
-    try {
-      setIsUploadingScreenshot(true);
+    const res = await fetch(`/api/upload/${folder}`, {
+      method: "POST",
+      body: formData,
+    });
 
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => null);
-        console.error("Screenshot upload failed:", data || res.statusText);
-        toast.error("স্ক্রিনশট আপলোড করতে সমস্যা হয়েছে");
-        setPaymentScreenshotUrl(null);
-        return;
-      }
-
-      const data = await res.json();
-      // 🔥 যেই key থাকুক না কেন, URL বের করার চেষ্টা করছি
-      const uploadedUrl =
-        (typeof data === "string" && data) ||
-        data?.url ||
-        data?.fileUrl ||
-        data?.path ||
-        data?.location ||
-        null;
-
-      if (!uploadedUrl) {
-        console.error("Upload response does not contain URL:", data);
-        toast.error("স্ক্রিনশটের URL পাওয়া যায়নি");
-        setPaymentScreenshotUrl(null);
-        return;
-      }
-
-      console.log("Uploaded screenshot URL:", uploadedUrl);
-      setPaymentScreenshotUrl(uploadedUrl);
-      // চাইলে এখানে toast দিতে পারো
-      // toast.success("স্ক্রিনশট আপলোড সম্পন্ন");
-    } catch (err) {
-      console.error("Screenshot upload error:", err);
-      toast.error("স্ক্রিনশট আপলোড করতে সমস্যা হয়েছে");
-      setPaymentScreenshotUrl(null);
-    } finally {
-      setIsUploadingScreenshot(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      console.error("Screenshot upload failed:", data || res.statusText);
+      throw new Error(
+        data?.message || "স্ক্রিনশট আপলোড করতে সমস্যা হয়েছে"
+      );
     }
-  };
 
-  // 🔹 paymentMethod থেকে payment status label বের করার helper
+    const data = await res.json();
+
+    const uploadedUrl =
+      (typeof data === "string" && data) ||
+      data?.url ||
+      data?.fileUrl ||
+      data?.path ||
+      data?.location ||
+      null;
+
+    if (!uploadedUrl) {
+      console.error("Upload response does not contain URL:", data);
+      throw new Error("স্ক্রিনশটের URL পাওয়া যায়নি");
+    }
+
+    console.log("Uploaded screenshot URL:", uploadedUrl);
+    setPaymentScreenshotUrl(uploadedUrl);
+    // toast.success("স্ক্রিনশট আপলোড সম্পন্ন হয়েছে");
+  } catch (err) {
+    console.error("Screenshot upload error:", err);
+    const message =
+      err instanceof Error
+        ? err.message
+        : "স্ক্রিনশট আপলোড করতে সমস্যা হয়েছে";
+    toast.error(message);
+    setPaymentScreenshotUrl(null);
+  } finally {
+    setIsUploadingScreenshot(false);
+  }
+};
+
+
   const getPaymentStatusFromMethod = (method: string) => {
     if (!method) return "Unknown";
     return method === "CashOnDelivery" ? "Unpaid" : "Paid";
@@ -328,8 +343,8 @@ export default function CheckoutPage() {
       items,
       transactionId:
         paymentMethod !== "CashOnDelivery" ? transactionId : null,
-      paymentStatus: computedPaymentStatus, // backend ignore করলেও সমস্যা নেই
-      image: paymentScreenshotUrl || null, // ✅ এখান দিয়ে DB তে যাবে
+      paymentStatus: computedPaymentStatus, 
+      image: paymentScreenshotUrl || null, 
     };
 
     console.log("Order payload:", payload);

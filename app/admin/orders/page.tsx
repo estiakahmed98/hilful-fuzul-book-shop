@@ -46,7 +46,7 @@ interface Order {
   status: OrderStatusType;
   paymentStatus: PaymentStatusType;
   transactionId?: string | null;
-  image?: string | null; // payment screenshot URL
+  image?: string | null; // payment screenshot URL (from DB)
   createdAt: string;
   orderItems?: OrderItem[];
   user?: {
@@ -309,7 +309,7 @@ const OrderManagement = () => {
     try {
       setSaving(true);
 
-      // 1) Update Order
+      // 1) Update Order (image DB theke already ache, ekhane change korchi na)
       const orderRes = await fetch(`/api/orders/${orderDetail.id}`, {
         method: "PATCH",
         headers: {
@@ -693,13 +693,6 @@ const OrderManagement = () => {
                         >
                           বিস্তারিত
                         </button>
-                        {/* <button
-                          type="button"
-                          className="rounded-full border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600"
-                          disabled
-                        >
-                          ডিলিট
-                        </button> */}
                       </div>
                     </div>
                   </div>
@@ -827,13 +820,15 @@ const OrderManagement = () => {
                     </div>
                   </div>
 
-                  {/* 1.5 Payment Screenshot */}
+                  {/* 1.5 Payment Screenshot (only show from DB URL) */}
                   {orderDetail.image && (
                     <div className="rounded-2xl bg-gray-50 p-4">
                       <h3 className="mb-3 text-xs font-semibold text-gray-500">
                         পেমেন্ট স্ক্রিনশট
                       </h3>
+
                       <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                        {/* Preview Card */}
                         <div className="w-full max-w-xs overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
@@ -842,12 +837,13 @@ const OrderManagement = () => {
                             className="h-full w-full max-h-72 object-contain bg-gray-50"
                           />
                         </div>
-                        <div className="text-xs text-gray-600 space-y-2">
+
+                        {/* Right side: text + link */}
+                        <div className="space-y-3 text-xs text-gray-600">
                           <p>
                             গ্রাহক পেমেন্ট করার পর এই স্ক্রিনশট আপলোড করেছেন।
-                            প্রয়োজন হলে নিচের বাটন থেকে নতুন ট্যাবে বড় করে দেখতে
-                            পারবেন।
                           </p>
+
                           <a
                             href={orderDetail.image}
                             target="_blank"
@@ -906,9 +902,9 @@ const OrderManagement = () => {
                           </div>
                           <p className="text-[11px] font-semibold text-gray-800">
                             ৳{" "}
-                            {Number(item.quantity * item.price).toLocaleString(
-                              "bn-BD"
-                            )}
+                            {Number(
+                              item.quantity * item.price
+                            ).toLocaleString("bn-BD")}
                           </p>
                         </div>
                       ))}
@@ -1078,7 +1074,9 @@ const OrderManagement = () => {
                         <input
                           type="date"
                           value={editDeliveredDate}
-                          onChange={(e) => setEditDeliveredDate(e.target.value)}
+                          onChange={(e) =>
+                            setEditDeliveredDate(e.target.value)
+                          }
                           className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs outline-none"
                         />
                       </div>
