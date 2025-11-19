@@ -1,7 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import {
+  useState,
+  useEffect,
+  ChangeEvent,
+  FormEvent,
+} from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
+import { Label } from "@/components/ui/label";
+import { Upload } from "lucide-react";
+import { toast } from "sonner";
 
 interface Blog {
   id: number;
@@ -14,11 +23,14 @@ interface Blog {
   createdAt: string | Date;
   updatedAt: string | Date;
 }
-import dynamic from "next/dynamic";
 
 const RichTextEditor = dynamic(() => import("./richTextEditor"), {
   ssr: false,
-  loading: () => <div className="h-[400px] border border-gray-300 rounded-lg p-4">Loading editor...</div>
+  loading: () => (
+    <div className="h-[400px] border border-gray-300 rounded-lg p-4">
+      Loading editor...
+    </div>
+  ),
 });
 
 interface BlogFormProps {
@@ -30,6 +42,8 @@ export default function BlogForm({ blog, onSuccess }: BlogFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [isClient, setIsClient] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+
   const [formData, setFormData] = useState({
     title: "",
     content: "",
@@ -44,7 +58,6 @@ export default function BlogForm({ blog, onSuccess }: BlogFormProps) {
 
   useEffect(() => {
     if (blog) {
-      // Ensure we're working with a Date object
       const blogDate =
         typeof blog.date === "string" ? new Date(blog.date) : blog.date;
 
@@ -58,7 +71,7 @@ export default function BlogForm({ blog, onSuccess }: BlogFormProps) {
     }
   }, [blog]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
 
@@ -75,6 +88,10 @@ export default function BlogForm({ blog, onSuccess }: BlogFormProps) {
       });
 
       if (response.ok) {
+        toast.success(
+          blog ? "Blog updated successfully" : "Blog created successfully"
+        );
+
         if (onSuccess) {
           onSuccess();
         } else {
@@ -87,16 +104,16 @@ export default function BlogForm({ blog, onSuccess }: BlogFormProps) {
           ?.includes("application/json");
         if (isJson) {
           const error = await response.json();
-          alert(error.error || "Something went wrong");
+          toast.error(error.error || "Something went wrong");
         } else {
           const text = await response.text();
           console.error("Non-JSON error response:", text);
-          alert("Request failed. Please try again.");
+          toast.error("Request failed. Please try again.");
         }
       }
     } catch (error) {
       console.error("Error saving blog:", error);
-      alert("Error saving blog");
+      toast.error("Error saving blog");
     } finally {
       setLoading(false);
     }
@@ -118,6 +135,58 @@ export default function BlogForm({ blog, onSuccess }: BlogFormProps) {
       content,
     }));
   };
+
+  // ✅ Main image upload → POST /api/upload (no folder param)
+ // /api/upload/${folder} → /api/upload/blogImages
+
+// 🔹 Main image upload → /api/upload/${folder}
+const handleImageFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  const folder = "blogImages"; // public/upload/blogImages এর জন্য
+
+  try {
+    setUploadingImage(true);
+
+    const fd = new FormData();
+    fd.append("file", file);
+
+    const res = await fetch(`/api/upload/${folder}`, {
+      method: "POST",
+      body: fd,
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      console.error("Image upload failed:", data || res.statusText);
+      throw new Error("Image upload failed");
+    }
+
+    const data = await res.json();
+
+    // ✅ এখানে এখন data.url চেক করবে, fileUrl না
+    if (!data.url) {
+      console.error("Invalid upload response:", data);
+      throw new Error("Invalid upload response: url missing");
+    }
+
+    // এই URL টা সরাসরি image field এ বসবে (DB-তে যাবে)
+    setFormData((prev) => ({
+      ...prev,
+      image: data.url,
+    }));
+
+    toast.success("Image uploaded successfully");
+  } catch (err: any) {
+    console.error("Error uploading image:", err);
+    toast.error(err.message || "Error uploading image");
+  } finally {
+    setUploadingImage(false);
+  }
+};
+
+
 
   return (
     <div className="p-2">
@@ -148,7 +217,7 @@ export default function BlogForm({ blog, onSuccess }: BlogFormProps) {
             />
           </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label
                 htmlFor="author"
@@ -187,13 +256,13 @@ export default function BlogForm({ blog, onSuccess }: BlogFormProps) {
             </div>
           </div>
 
+          {/* Content */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Content *
             </label>
             {isClient && (
               <RichTextEditor
-                key={formData.content} // Force re-render when content changes
                 initialValue={formData.content}
                 onContentChange={handleContentChange}
                 height="400px"
@@ -201,31 +270,75 @@ export default function BlogForm({ blog, onSuccess }: BlogFormProps) {
             )}
           </div>
 
-          <div>
+          {/* Featured Image (upload + URL) */}
+          <div className="space-y-2">
+            <Label>Featured Image *</Label>
+
+            {/* Preview */}
+            {formData.image && (
+              <div className="mb-3 flex items-center gap-4">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={formData.image}
+                  alt="Blog featured"
+                  className="w-24 h-24 rounded-md object-cover border"
+                />
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFormData((prev) => ({ ...prev, image: "" }))
+                  }
+                  className="text-xs text-red-600 hover:underline"
+                >
+                  Remove image
+                </button>
+              </div>
+            )}
+
+            {/* File upload → /api/upload */}
             <label
-              htmlFor="image"
-              className="block text-sm font-medium text-gray-700 mb-2"
+              htmlFor="blog-image-upload"
+              className="mt-1 flex flex-col items-center justify-center px-6 pt-5 pb-6 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 transition-colors cursor-pointer"
             >
-              Image URL
+              <div className="space-y-1 text-center">
+                <div className="flex justify-center">
+                  <Upload className="h-12 w-12 text-gray-400" />
+                </div>
+                <div className="flex text-sm text-gray-600 justify-center">
+                  <span className="relative font-medium text-blue-600 hover:text-blue-700 focus-within:outline-none">
+                    Upload an image
+                  </span>
+                  <span className="pl-1">or drag and drop</span>
+                </div>
+                <p className="text-xs text-gray-500">
+                  PNG, JPG, GIF up to 5MB
+                </p>
+              </div>
+              <input
+                id="blog-image-upload"
+                name="blog-image-upload"
+                type="file"
+                className="sr-only"
+                accept="image/*"
+                onChange={handleImageFileChange}
+              />
             </label>
+
+            {uploadingImage && (
+              <p className="text-xs text-gray-500 mt-1">
+                Uploading image...
+              </p>
+            )}
+
+            {/* Optional: manual URL input */}
             <input
-              type="url"
-              id="image"
+              type="text"
               name="image"
               value={formData.image}
               onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="https://example.com/image.jpg"
+              placeholder="Or paste image URL (optional)"
+              className="mt-2 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
-            {formData.image && (
-              <div className="mt-2">
-                <img
-                  src={formData.image}
-                  alt="Preview"
-                  className="h-32 w-32 object-cover rounded-lg border"
-                />
-              </div>
-            )}
           </div>
 
           <div className="flex justify-end space-x-3 pt-6">
