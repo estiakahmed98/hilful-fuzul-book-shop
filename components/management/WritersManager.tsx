@@ -208,7 +208,6 @@ export default function WritersManager({
                     {writer.name}
                   </h3>
 
-                  {/* ✔ Updated: Only count */}
                   <div className="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full">
                     <BookOpen className="h-3 w-3 text-gray-500" /> Total Books:
                     <span>{writer._count?.products || 0}</span>
@@ -282,24 +281,53 @@ export default function WritersManager({
                     const file = e.target.files?.[0];
                     if (!file) return;
 
+                    const folder = "writers"; // 🔹 এখানে folder নাম
+
                     const formData = new FormData();
                     formData.append("file", file);
 
                     try {
-                      toast.loading("ছবি আপলোড হচ্ছে...", { id: "upload" });
+                      toast.loading("ছবি আপলোড হচ্ছে...", { id: "upload-writer" });
 
-                      const res = await fetch("/api/upload", {
+                      const res = await fetch(`/api/upload/${folder}`, {
                         method: "POST",
                         body: formData,
                       });
 
+                      if (!res.ok) {
+                        throw new Error("Upload failed");
+                      }
+
                       const data = await res.json();
 
-                      setForm({ ...form, image: data.fileUrl });
+                      // বিভিন্ন রেসপন্স কী হ্যান্ডেল:
+                      const rawUrl: string | undefined =
+                        data.fileUrl || data.url || data.path || data.location;
 
-                      toast.success("ছবি আপলোড সম্পন্ন!", { id: "upload" });
+                      if (!rawUrl) {
+                        throw new Error("Server did not return image URL");
+                      }
+
+                      let finalUrl = rawUrl;
+                      try {
+                        const base =
+                          typeof window !== "undefined"
+                            ? window.location.origin
+                            : "http://localhost";
+                        const url = new URL(rawUrl, base);
+                        const parts = url.pathname.split("/").filter(Boolean);
+                        const filename = parts[parts.length - 1];
+
+                        finalUrl = `/api/upload/${folder}/${filename}`;
+                      } catch {
+                        // URL parse error হলে rawUrl ই রাখব
+                      }
+
+                      setForm((prev) => ({ ...prev, image: finalUrl }));
+                      toast.success("ছবি আপলোড সম্পন্ন!", { id: "upload-writer" });
                     } catch (err) {
-                      toast.error("ছবি আপলোড ব্যর্থ!");
+                      console.error("Writer image upload error:", err);
+                      toast.error("ছবি আপলোড ব্যর্থ!", { id: "upload-writer" });
                     }
                   }}
                 />
