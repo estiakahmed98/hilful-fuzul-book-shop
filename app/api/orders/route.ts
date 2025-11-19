@@ -133,6 +133,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // If payment is online, require a payment screenshot (image)
+    if (payment_method !== "CashOnDelivery" && !image) {
+      return NextResponse.json(
+        { error: "Payment screenshot is required for online payments" },
+        { status: 400 }
+      );
+    }
+
     // validate items quickly
     for (const item of items) {
       if (!item.productId || !item.quantity || item.quantity <= 0) {
@@ -193,38 +201,59 @@ export async function POST(request: NextRequest) {
         ? PaymentStatus.UNPAID
         : PaymentStatus.PAID;
 
-    // create order with nested items
-    const order = await prisma.order.create({
-      data: {
-        userId: userId ?? null,
-        name,
-        email: email ?? null,
-        phone_number,
-        alt_phone_number: alt_phone_number ?? null,
-        country,
-        district,
-        area,
-        address_details,
-        payment_method,
-        total: subtotal,
-        shipping_cost,
-        grand_total,
-        status: OrderStatus.PENDING,
-        paymentStatus,                        // dynamic (PAID / UNPAID)
-        transactionId: transactionId ?? null,
-        image: image ?? null,                 // ✅ সবসময় image ফিল্ডে সেট হচ্ছে
-        orderItems: {
-          create: orderItemsData,
+    // Use a transaction to ensure stock is decremented atomically
+    const created = await prisma.$transaction(async (tx) => {
+      // 1) For each ordered item, ensure sufficient stock and decrement
+      for (const it of items) {
+        const pid = Number(it.productId);
+        const qty = Number(it.quantity);
+
+        const updated = await tx.product.updateMany({
+          where: { id: pid, stock: { gte: qty } },
+          data: { stock: { decrement: qty } },
+        });
+
+        if (updated.count === 0) {
+          // Either product not found or not enough stock
+          throw new Error(
+            `Product not enough stock for id=${pid} (requested=${qty})`
+          );
+        }
+      }
+
+      // 2) Create the order (orderItems will reference productId values)
+      const o = await tx.order.create({
+        data: {
+          userId: userId ?? null,
+          name,
+          email: email ?? null,
+          phone_number,
+          alt_phone_number: alt_phone_number ?? null,
+          country,
+          district,
+          area,
+          address_details,
+          payment_method,
+          total: subtotal,
+          shipping_cost,
+          grand_total,
+          status: OrderStatus.PENDING,
+          paymentStatus,
+          transactionId: transactionId ?? null,
+          image: image ?? null,
+          orderItems: {
+            create: orderItemsData,
+          },
         },
-      },
-      include: {
-        orderItems: {
-          include: { product: true },
+        include: {
+          orderItems: { include: { product: true } },
         },
-      },
+      });
+
+      return o;
     });
 
-    return NextResponse.json(order, { status: 201 });
+    return NextResponse.json(created, { status: 201 });
   } catch (error: any) {
     console.error("Error creating order:", error);
 

@@ -98,6 +98,13 @@ export default function CartPage() {
     fetchServerCart();
   }, [isAuthenticated, hasMounted]);
 
+  // Listen for server-side cart cleared events (dispatched after order placement)
+  useEffect(() => {
+    const handler = () => setServerCartItems([]);
+    window.addEventListener("serverCartCleared", handler);
+    return () => window.removeEventListener("serverCartCleared", handler);
+  }, []);
+
   if (!hasMounted) return null;
 
   // ✅ UI তে যে লিস্ট দেখাবো: লগইন + serverCart থাকলে সেটা, নইলে context

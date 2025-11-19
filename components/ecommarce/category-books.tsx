@@ -24,6 +24,7 @@ interface Product {
   discount: number;
   writer: { name: string };
   image: string;
+  stock?: number;
 }
 
 interface RatingInfo {
@@ -48,7 +49,10 @@ export default function CategoryBooks({ category }: { category: Category }) {
 
         const res = await fetch("/api/products", { cache: "no-store" });
         if (!res.ok) {
-          console.error("Failed to fetch products for CategoryBooks:", res.statusText);
+          console.error(
+            "Failed to fetch products for CategoryBooks:",
+            res.statusText
+          );
           setAllProducts([]);
           return;
         }
@@ -70,6 +74,7 @@ export default function CategoryBooks({ category }: { category: Category }) {
           price: Number(p.price ?? 0),
           original_price: Number(p.original_price ?? p.price ?? 0),
           discount: Number(p.discount ?? 0),
+          stock: Number(p.stock ?? 0),
           writer: {
             name: p.writer?.name ?? "অজ্ঞাত লেখক",
           },
@@ -426,24 +431,39 @@ export default function CategoryBooks({ category }: { category: Category }) {
                       </span>
                     )}
                   </div>
-                  {book.discount > 0 && (
-                    <div className="text-xs font-semibold bg-[#D1D8BE] text-gray-700 px-2 py-1 rounded-full">
-                      সাশ্রয় করুন
+                  {book.stock === 0 ? (
+                    <div className="text-xs font-semibold bg-rose-600 text-white px-2 py-1 rounded-full">
+                      Stock Out
                     </div>
+                  ) : (
+                    book.discount > 0 && (
+                      <div className="text-xs font-semibold bg-[#D1D8BE] text-gray-700 px-2 py-1 rounded-full">
+                        সাশ্রয় করুন
+                      </div>
+                    )
                   )}
                 </div>
               </CardContent>
 
               <CardFooter className="p-5 pt-0">
                 <Button
-                  className="w-full rounded-xl py-6 bg-gradient-to-r from-[#2C4A3B] to-[#2C4A3B] hover:from-[#819A91] hover:to-[#819A91] text-white font-semibold border-0 shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 group/btn"
+                  disabled={book.stock === 0}
+                  className={`w-full rounded-xl py-6 text-white font-semibold border-0 shadow-md transition-all duration-300
+    ${
+      book.stock === 0
+        ? "bg-gray-400 cursor-not-allowed opacity-60"
+        : "bg-gradient-to-r from-[#2C4A3B] to-[#2C4A3B] hover:from-[#819A91] hover:to-[#819A91] hover:shadow-lg hover:scale-105 group/btn"
+    }
+  `}
                   onClick={(e) => {
                     e.preventDefault();
-                    handleAddToCart(book);
+                    if (book.stock !== 0) {
+                      handleAddToCart(book);
+                    }
                   }}
                 >
                   <ShoppingCart className="mr-2 h-4 w-4 group-hover/btn:scale-110 transition-transform" />
-                  কার্টে যোগ করুন
+                  {book.stock === 0 ? "স্টক শেষ" : "কার্টে যোগ করুন"}
                 </Button>
               </CardFooter>
 
