@@ -107,7 +107,7 @@ export default function CategoryBooks({ category }: { category: Category }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [category.id]);
 
-  // 🔹 Wishlist toggle (with API)
+  // 🔹 Wishlist toggle (with API) - শুধু wishlist-এ login required
   const toggleWishlist = async (product: Product) => {
     try {
       if (!session?.user) {
@@ -175,38 +175,30 @@ export default function CategoryBooks({ category }: { category: Category }) {
     }
   };
 
-  const handleAddToCart = async (book: Product) => {
+  // 🔹 Cart-এ add করতে login এর requirement নেই - সরাসরি localStorage/cart context ব্যবহার করুন
+  const handleAddToCart = (book: Product) => {
     try {
-      if (!session?.user) {
-        toast.error("কার্টে যোগ করতে আগে লগইন করুন");
-        return;
-      }
-
-      const res = await fetch("/api/cart", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          productId: Number(book.id),
-          quantity: 1,
-        }),
-      });
-
-      if (res.status === 401) {
-        toast.error("কার্টে যোগ করতে আগে লগইন করুন");
-        return;
-      }
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => null);
-        console.error("Add to cart failed:", data || res.statusText);
-        toast.error("কার্টে যোগ করা যায়নি, আবার চেষ্টা করুন");
-        return;
-      }
-
+      // সরাসরি cart context-এ add করুন (API call ছাড়া)
       addToCart(book.id);
       toast.success(`"${book.name}" কার্টে যোগ করা হয়েছে`);
+      
+      // Optional: যদি আপনি backend-এও save করতে চান (user logged in থাকলে)
+      if (session?.user) {
+        // User logged in থাকলে backend-এও save করুন
+        fetch("/api/cart", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            productId: Number(book.id),
+            quantity: 1,
+          }),
+        }).catch(error => {
+          console.error("Failed to sync cart with backend:", error);
+          // Backend sync fail হলেও problem নেই, localStorage-এ save হয়ে গেছে
+        });
+      }
     } catch (error) {
       console.error("Error adding to cart:", error);
       toast.error("কার্টে যোগ করতে সমস্যা হয়েছে");
@@ -388,7 +380,7 @@ export default function CategoryBooks({ category }: { category: Category }) {
                   className="w-full rounded-xl py-6 bg-gradient-to-r from-[#2C4A3B] to-[#2C4A3B] hover:from-[#819A91] hover:to-[#819A91] text-white font-semibold border-0 shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 group/btn"
                   onClick={(e) => {
                     e.preventDefault();
-                    void handleAddToCart(book);
+                    handleAddToCart(book);
                   }}
                 >
                   <ShoppingCart className="mr-2 h-4 w-4 group-hover/btn:scale-110 transition-transform" />
