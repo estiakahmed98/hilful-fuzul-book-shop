@@ -304,6 +304,7 @@ export default function ProductManager({
                     <p>Category: {p.category?.name || "No category"}</p>
                     <p>Writer: {p.writer?.name || "No writer"}</p>
                     <p>Publisher: {p.publisher?.name || "No publisher"}</p>
+                    <p>Stock: {p.stock || "Stock Out"}</p>
                   </div>
 
                   <p className="text-gray-600 text-sm">Price: ৳{p.price}</p>

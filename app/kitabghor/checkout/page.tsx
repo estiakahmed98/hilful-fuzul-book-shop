@@ -304,10 +304,20 @@ const folder = "paymentScreenshot";
     // যদি অনলাইন পেমেন্ট হয় এবং স্ক্রিনশট দেওয়া হয় কিন্তু upload এখনও শেষ না হয়
     if (
       paymentMethod !== "CashOnDelivery" &&
-      paymentScreenshot &&
-      (!paymentScreenshotUrl || isUploadingScreenshot)
+      (
+        // require screenshot URL for non-COD payments
+        !paymentScreenshotUrl ||
+        isUploadingScreenshot
+      )
     ) {
-      toast.error("স্ক্রিনশট আপলোড শেষ হওয়া পর্যন্ত অপেক্ষা করুন");
+      // If upload is still in progress
+      if (isUploadingScreenshot) {
+        toast.error("স্ক্রিনশট আপলোড শেষ হওয়া পর্যন্ত অপেক্ষা করুন");
+        return;
+      }
+
+      // If not uploaded at all, require screenshot
+      toast.error("পেমেন্ট স্ক্রিনশট আবশ্যক");
       return;
     }
 
@@ -382,6 +392,20 @@ const folder = "paymentScreenshot";
       };
 
       setPlacedOrder(uiWithOrderId);
+      // Clear the cart on successful order creation so the UI reflects the empty cart
+      // If user is authenticated, also clear server-side cart and notify other components
+      try {
+        if ((session as any)?.user) {
+          await fetch("/api/cart", { method: "DELETE" });
+          // notify ShoppingCart instances to refresh serverCartItems
+          window.dispatchEvent(new Event("serverCartCleared"));
+        }
+      } catch (err) {
+        // non-fatal
+        console.warn("Failed to clear server cart after order:", err);
+      }
+
+      clearCart();
       setInvoiceId(localInvoiceId);
       setStep("confirm");
       toast.success("অর্ডার তৈরি হয়েছে, এখন নিশ্চিত করুন");
