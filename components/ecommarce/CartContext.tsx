@@ -188,13 +188,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
   };
 
   const clearCart = () => {
-    // ✅ context + localStorage দুই জায়গাতেই ফাঁকা
+    // ✅ শুধু context state ফাঁকা করো
+    // localStorage sync effect নিজে থেকেই "[]" লিখে দেবে
     setCartItems([]);
-    try {
-      localStorage.removeItem("cartItems");
-    } catch (e) {
-      console.error("Failed to remove cartItems from localStorage:", e);
-    }
   };
 
   return (
