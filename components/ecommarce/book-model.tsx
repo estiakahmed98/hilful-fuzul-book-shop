@@ -26,13 +26,8 @@ function Model({ modelUrl }: { modelUrl: string }) {
 }
 
 export default function BookModel({ modelUrl }: { modelUrl?: string }) {
-  if (!modelUrl) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <p className="text-red-500">মডেল লিঙ্ক পাওয়া যায়নি</p>
-      </div>
-    );
-  }
+  const defaultModelUrl = "/assets/3dmodel/1.glb";
+  const modelPath = modelUrl || defaultModelUrl;
 
   return (
     <div className="w-full h-full">
@@ -50,7 +45,7 @@ export default function BookModel({ modelUrl }: { modelUrl?: string }) {
             </Html>
           }
         >
-          <Model modelUrl={modelUrl} />
+          <Model modelUrl={modelPath} />
           <Environment preset="city" />
         </Suspense>
         <OrbitControls enableZoom={true} />

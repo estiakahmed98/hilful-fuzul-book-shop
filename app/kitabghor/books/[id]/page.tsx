@@ -562,23 +562,23 @@ export default function BookDetail() {
         {/* Modal Overlays */}
         {showModel && (
           <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg:white rounded-2xl w-full max-w-4xl h:[80vh] overflow-hidden shadow-2xl">
-              <div className="flex justify-between items-center p-6 border-b border-[#D1D8BE]">
-                <h3 className="font-bold text-xl text-gray-800 flex items-center gap-2">
-                  <Cube className="h-5 w-5 text-[#819A91]" />
-                  3D মডেল - {book.name}
+            <div className="rounded-2xl w-full max-w-4xl h:[80vh] overflow-hidden shadow-2xl">
+              <div className="flex justify-between bg-gradient-to-r from-[#819A91] to-[#A7C1A8] items-center p-6 border-b border-[#D1D8BE]">
+                <h3 className="font-bold text-xl text-gray-100 flex items-center gap-2">
+                  <Cube className="h-5 w-5 text-[#ffffff]" />
+                  3D মডেল ( Demo ) - {book.name}
                 </h3>
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => setShowModel(false)}
+                  onClick={() => setShowModel(false)} 
                   className="rounded-xl hover:bg-red-50 hover:text-red-500 transition-colors"
                 >
                   <X className="h-5 w-5" />
                 </Button>
               </div>
               <div className="h-[calc(80vh-80px)]">
-                <BookModel modelUrl={book.modelUrl} />
+                <BookModel modelUrl="/assets/3dmodel/1.glb" />
               </div>
             </div>
           </div>
