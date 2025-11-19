@@ -208,6 +208,15 @@ const folder = "paymentScreenshot";
   const shipping = 60;
   const total = subtotal + shipping;
 
+  // Helper function to generate initials from channel name
+  const getChannelInitials = (channel: string): string => {
+    const words = channel.trim().split(/\s+/);
+    if (words.length === 1) {
+      return words[0].charAt(0).toUpperCase();
+    }
+    return words.map(word => word.charAt(0).toUpperCase()).join('');
+  };
+
   // Currently selected non-COD gateway based on paymentMethod
   const selectedGateway = paymentGateways.find((p) => {
     if (!paymentMethod || paymentMethod === "CashOnDelivery") return false;
@@ -561,13 +570,9 @@ const folder = "paymentScreenshot";
                             <div
                               className={`w-12 h-12 rounded-lg ${method.color} flex items-center justify-center shadow-md`}
                             >
-                              <Image
-                                src={`/assets/others/payments/${method.id}.png`}
-                                alt={method.name}
-                                width={24}
-                                height={24}
-                                className="filter brightness-0 invert"
-                              />
+                              <span className="text-white font-bold text-lg">
+                                {method.id === "CashOnDelivery" ? "COD" : getChannelInitials(method.name)}
+                              </span>
                             </div>
                             <div>
                               <span className="font-semibold text-[#2D4A3C]">
