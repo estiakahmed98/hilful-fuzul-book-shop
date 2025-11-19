@@ -4,6 +4,9 @@ import { NextResponse } from "next/server";
 export async function GET() {
   try {
     const products = await prisma.product.findMany({
+      where: {
+        available: true,     // only active products
+      },
       orderBy: { id: "desc" },
       include: {
         writer: true,

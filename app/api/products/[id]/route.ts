@@ -99,16 +99,15 @@ export async function PUT(
   }
 }
 
-// DELETE
+// Soft-DELETE
 export async function DELETE(
-  req: Request,
+  _req: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    const { id: idStr } = await params;
+    const { id: idStr } = params;
     const id = Number(idStr);
-    
-    // Check if ID is valid
+
     if (isNaN(id)) {
       return NextResponse.json(
         { error: "Invalid product ID" },
@@ -116,11 +115,10 @@ export async function DELETE(
       );
     }
 
-    // Check if product exists before deleting
     const existingProduct = await prisma.product.findUnique({
       where: { id },
     });
-    
+
     if (!existingProduct) {
       return NextResponse.json(
         { error: "Product not found" },
@@ -128,15 +126,23 @@ export async function DELETE(
       );
     }
 
-    await prisma.product.delete({
+    // ❗ আসল ডিলিট না করে শুধু inactive/soft-delete করলাম
+    const updated = await prisma.product.update({
       where: { id },
+      data: {
+        available: false,  // 🔴 এই ফ্ল্যাগ দিয়েই আমরা hide করব
+        stock: 0,          // optional: স্টক ০ করে দিচ্ছি যেন আর buy না হয়
+      },
     });
 
-    return NextResponse.json({ message: "Product deleted successfully" });
+    return NextResponse.json({
+      message: "Product marked as inactive successfully",
+      product: updated,
+    });
   } catch (err) {
-    console.error("DELETE ERROR:", err);
+    console.error("SOFT DELETE ERROR:", err);
     return NextResponse.json(
-      { error: "Failed to delete product" },
+      { error: "Failed to deactivate product" },
       { status: 500 }
     );
   }

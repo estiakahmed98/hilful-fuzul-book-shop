@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { products } from "@/public/BookData";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Heart, ShoppingCart } from "lucide-react";
@@ -18,6 +17,23 @@ interface PublisherFromApi {
   image?: string | null;
 }
 
+interface BookFromApi {
+  id: number;
+  name: string;
+  image: string | null;
+  price: number;
+  original_price?: number | null;
+  discount: number;
+  writer: {
+    id: number;
+    name: string;
+  };
+  publisher: {
+    id: number;
+    name: string;
+  };
+}
+
 export default function PublisherBooksPage() {
   const params = useParams();
   const rawId = Array.isArray(params?.id) ? params.id[0] : params?.id;
@@ -27,15 +43,11 @@ export default function PublisherBooksPage() {
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
 
   const [publisher, setPublisher] = useState<PublisherFromApi | null>(null);
+  const [booksByPublisher, setBooksByPublisher] = useState<BookFromApi[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // 🔹 ওই publisher-এর বইগুলো (লোকাল BookData থেকে)
-  const booksByPublisher = products.filter(
-    (book) => book.publisher.id === publisherId
-  );
-
-  // 🔹 API থেকে publisher ডেটা লোড
+  // 🔹 API থেকে publisher + তার সব বই লোড
   useEffect(() => {
     if (!publisherId || Number.isNaN(publisherId)) {
       setError("ভুল প্রকাশক আইডি প্রদান করা হয়েছে।");
@@ -43,12 +55,13 @@ export default function PublisherBooksPage() {
       return;
     }
 
-    const fetchPublisher = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
         setError(null);
 
-        const res = await fetch(`/api/publishers/${publisherId}`, {
+        // 1) প্রকাশক ডেটা
+        const resPublisher = await fetch(`/api/publishers/${publisherId}`, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
@@ -56,32 +69,61 @@ export default function PublisherBooksPage() {
           cache: "no-store",
         });
 
-        const data = await res.json().catch(() => null);
+        const publisherData = await resPublisher.json().catch(() => null);
 
-        if (!res.ok) {
-          console.error("Failed to fetch publisher:", data || res.statusText);
+        if (!resPublisher.ok) {
+          console.error(
+            "Failed to fetch publisher:",
+            publisherData || resPublisher.statusText
+          );
 
-          if (res.status === 404) {
+          if (resPublisher.status === 404) {
             setError("প্রকাশক পাওয়া যায়নি।");
           } else {
             setError("প্রকাশকের তথ্য লোড করতে সমস্যা হয়েছে।");
           }
 
           setPublisher(null);
+          setBooksByPublisher([]);
           return;
         }
 
-        setPublisher(data as PublisherFromApi);
+        setPublisher(publisherData as PublisherFromApi);
+
+        // 2) সব প্রোডাক্ট নিয়ে আসি, তারপর publisherId দিয়ে filter করি
+        const resProducts = await fetch("/api/products", { cache: "no-store" });
+
+        if (!resProducts.ok) {
+          console.error("Failed to fetch products:", resProducts.statusText);
+          // পণ্য না পেলেও পেজ দেখাবো, শুধু বই শূন্য হবে
+          setBooksByPublisher([]);
+          return;
+        }
+
+        const allProducts: BookFromApi[] = await resProducts.json().catch(() => []);
+
+        if (!Array.isArray(allProducts)) {
+          console.error("Invalid products response:", allProducts);
+          setBooksByPublisher([]);
+          return;
+        }
+
+        const filtered = allProducts.filter(
+          (book) => Number(book.publisher?.id) === Number(publisherId)
+        );
+
+        setBooksByPublisher(filtered);
       } catch (err) {
-        console.error("Error fetching publisher:", err);
-        setError("প্রকাশকের তথ্য লোড করতে সমস্যা হয়েছে।");
+        console.error("Error fetching publisher/books:", err);
+        setError("ডাটা লোড করতে সমস্যা হয়েছে।");
         setPublisher(null);
+        setBooksByPublisher([]);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchPublisher();
+    fetchData();
   }, [publisherId]);
 
   const toggleWishlist = (bookId: number) => {
@@ -92,6 +134,12 @@ export default function PublisherBooksPage() {
       addToWishlist(bookId);
       toast.success("উইশলিস্টে যোগ করা হয়েছে");
     }
+  };
+
+  const handleAddToCart = (book: BookFromApi) => {
+    // শুধু context এ যোগ হচ্ছে (guest + logged-in দুই কেসেই কাজ করবে)
+    addToCart(book.id);
+    toast.success(`"${book.name}" কার্টে যোগ করা হয়েছে`);
   };
 
   // 🔹 লোডিং স্টেট
@@ -108,17 +156,11 @@ export default function PublisherBooksPage() {
     return (
       <div className="container mx-auto py-12 px-4">
         <p className="text-red-500 mb-4">{error}</p>
-        {booksByPublisher.length > 0 && (
-          <p className="text-sm text-muted-foreground">
-            লোকাল ডেটা অনুযায়ী এই প্রকাশকের অধীনে {booksByPublisher.length} টি
-            বই পাওয়া গেছে।
-          </p>
-        )}
       </div>
     );
   }
 
-  // 🔹 publisher না পেলে (সেফগার্ড)
+  // 🔹 publisher না পেলে
   if (!publisher) {
     return (
       <div className="container mx-auto py-12 px-4">
@@ -127,7 +169,7 @@ export default function PublisherBooksPage() {
     );
   }
 
-  // 🔹 কোনো বই নাই (publisher আছে কিন্তু BookData তে নেই)
+  // 🔹 কোনো বই নাই
   if (booksByPublisher.length === 0) {
     return (
       <div className="container mx-auto py-12 px-4">
@@ -165,12 +207,12 @@ export default function PublisherBooksPage() {
                 </h4>
               </Link>
               <p className="text-sm text-muted-foreground mb-2">
-                {book.writer.name}
+                {book.writer?.name}
               </p>
               <div className="flex items-center justify-between">
                 <div>
                   <span className="font-bold text-lg">৳{book.price}</span>
-                  {book.discount > 0 && (
+                  {book.discount > 0 && book.original_price && (
                     <span className="text-sm text-muted-foreground line-through ml-2">
                       ৳{book.original_price}
                     </span>
@@ -192,7 +234,7 @@ export default function PublisherBooksPage() {
               </div>
             </CardContent>
             <CardFooter className="p-4 pt-0">
-              <Button className="w-full" onClick={() => addToCart(book.id)}>
+              <Button className="w-full" onClick={() => handleAddToCart(book)}>
                 <ShoppingCart className="mr-2 h-4 w-4" />
                 কার্টে যোগ করুন
               </Button>

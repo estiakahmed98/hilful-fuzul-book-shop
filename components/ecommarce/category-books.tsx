@@ -4,7 +4,6 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { products } from "@/public/BookData";
 import { Heart, ShoppingCart, Star, Zap, BookOpen } from "lucide-react";
 import { useCart } from "@/components/ecommarce/CartContext";
 import { useWishlist } from "@/components/ecommarce/WishlistContext";
@@ -37,19 +36,70 @@ export default function CategoryBooks({ category }: { category: Category }) {
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
   const { data: session } = useSession();
 
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [ratings, setRatings] = useState<Record<string, RatingInfo>>({});
+  const [loadingProducts, setLoadingProducts] = useState(true);
 
-  // Show ALL products if category.id === "all"
+  // 🔹 /api/products থেকে সব প্রোডাক্ট লোড
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        setLoadingProducts(true);
+
+        const res = await fetch("/api/products", { cache: "no-store" });
+        if (!res.ok) {
+          console.error("Failed to fetch products for CategoryBooks:", res.statusText);
+          setAllProducts([]);
+          return;
+        }
+
+        const data = await res.json();
+
+        if (!Array.isArray(data)) {
+          console.error("Invalid products response for CategoryBooks:", data);
+          setAllProducts([]);
+          return;
+        }
+
+        const mapped: Product[] = data.map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          category: {
+            id: p.category?.id ?? p.categoryId ?? "unknown",
+          },
+          price: Number(p.price ?? 0),
+          original_price: Number(p.original_price ?? p.price ?? 0),
+          discount: Number(p.discount ?? 0),
+          writer: {
+            name: p.writer?.name ?? "অজ্ঞাত লেখক",
+          },
+          image: p.image ?? "/placeholder.svg",
+        }));
+
+        setAllProducts(mapped);
+      } catch (err) {
+        console.error("Error fetching products for CategoryBooks:", err);
+        setAllProducts([]);
+      } finally {
+        setLoadingProducts(false);
+      }
+    };
+
+    fetchProducts();
+  }, []);
+
+  // 🔹 ক্যাটাগরি অনুযায়ি প্রোডাক্ট ফিল্টার
   const categoryBooks =
     category.id === "all"
-      ? products
-      : products.filter(
-          (product: Product) => product.category.id === category.id
+      ? allProducts
+      : allProducts.filter(
+          (product: Product) =>
+            String(product.category.id) === String(category.id)
         );
 
   const displayBooks = categoryBooks.slice(0, 8);
 
-  // 🔹 এই ক্যাটাগরির জন্য রিভিউ থেকে রেটিং লোড করি
+  // ⭐ এই ক্যাটাগরির বইগুলোর রিভিউ থেকে রেটিং লোড
   useEffect(() => {
     const fetchRatings = async () => {
       try {
@@ -103,9 +153,11 @@ export default function CategoryBooks({ category }: { category: Category }) {
       }
     };
 
-    fetchRatings();
+    if (!loadingProducts) {
+      fetchRatings();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [category.id]);
+  }, [category.id, loadingProducts, allProducts.length]);
 
   // 🔹 Wishlist toggle (with API) - শুধু wishlist-এ login required
   const toggleWishlist = async (product: Product) => {
@@ -175,16 +227,14 @@ export default function CategoryBooks({ category }: { category: Category }) {
     }
   };
 
-  // 🔹 Cart-এ add করতে login এর requirement নেই - সরাসরি localStorage/cart context ব্যবহার করুন
+  // 🔹 Cart-এ add করতে login এর requirement নেই - localStorage/cart context ব্যবহার
   const handleAddToCart = (book: Product) => {
     try {
-      // সরাসরি cart context-এ add করুন (API call ছাড়া)
       addToCart(book.id);
       toast.success(`"${book.name}" কার্টে যোগ করা হয়েছে`);
-      
-      // Optional: যদি আপনি backend-এও save করতে চান (user logged in থাকলে)
+
+      // Optional: logged-in অবস্থায় backend sync
       if (session?.user) {
-        // User logged in থাকলে backend-এও save করুন
         fetch("/api/cart", {
           method: "POST",
           headers: {
@@ -194,9 +244,8 @@ export default function CategoryBooks({ category }: { category: Category }) {
             productId: Number(book.id),
             quantity: 1,
           }),
-        }).catch(error => {
+        }).catch((error) => {
           console.error("Failed to sync cart with backend:", error);
-          // Backend sync fail হলেও problem নেই, localStorage-এ save হয়ে গেছে
         });
       }
     } catch (error) {
@@ -204,6 +253,16 @@ export default function CategoryBooks({ category }: { category: Category }) {
       toast.error("কার্টে যোগ করতে সমস্যা হয়েছে");
     }
   };
+
+  // ⛔ এই ক্যাটাগরিতে যদি কোনো প্রোডাক্ট না থাকে, তাহলে কিছুই দেখাব না
+  if (!loadingProducts && categoryBooks.length === 0) {
+    return null;
+  }
+
+  // চাইলে loading অবস্থায়ও কিছু দেখাতে পারো, না চাইলে null-ই থাক
+  if (loadingProducts && category.id !== "all") {
+    return null;
+  }
 
   return (
     <div className="mb-16">
@@ -293,7 +352,7 @@ export default function CategoryBooks({ category }: { category: Category }) {
               </button>
 
               {/* Book Image */}
-              <Link href={`kitabghor/books/${book.id}`}>
+              <Link href={`/kitabghor/books/${book.id}`}>
                 <div className="relative h-72 w-full overflow-hidden">
                   <Image
                     src={book.image || "/placeholder.svg"}
@@ -343,7 +402,7 @@ export default function CategoryBooks({ category }: { category: Category }) {
                 </div>
 
                 {/* Book Title */}
-                <Link href={`kitabghor/books/${book.id}`}>
+                <Link href={`/kitabghor/books/${book.id}`}>
                   <h4 className="font-bold text-lg mb-2 text-gray-800 hover:text-[#819A91] duration-300 line-clamp-2 leading-tight group-hover:translate-x-1 transition-transform">
                     {book.name}
                   </h4>
