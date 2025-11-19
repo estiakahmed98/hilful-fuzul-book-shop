@@ -39,16 +39,35 @@ export async function PUT(request: NextRequest) {
   }
 
   const userId = (session.user as any).id as string;
-  const body = await request.json();
 
+  const body = await request.json();
   const { name, phone, image, note, address } = body;
+
+  let finalImageUrl = undefined;
+
+  // ✅ যদি image থাকে → এটাকে /api/upload/${folder}/${filename} format-এ convert করি
+  if (image) {
+    try {
+      const url = new URL(image);
+      const pathname = url.pathname; // /folder/filename.ext
+
+      const parts = pathname.split("/").filter(Boolean); 
+      const folder = parts[0];       // userProfilePic
+      const filename = parts[1];     // abc.jpg
+
+      finalImageUrl = `/api/upload/${folder}/${filename}`; 
+    } catch {
+      // যদি image already a correct path হয় → সেভাবেই রাখো
+      finalImageUrl = image;
+    }
+  }
 
   const updated = await db.user.update({
     where: { id: userId },
     data: {
       name: name ?? undefined,
       phone: phone ?? undefined,
-      image: image ?? undefined,
+      image: finalImageUrl ?? undefined,
       note: note ?? undefined,
       address: address ?? undefined,
     },
@@ -66,3 +85,4 @@ export async function PUT(request: NextRequest) {
 
   return NextResponse.json(updated);
 }
+

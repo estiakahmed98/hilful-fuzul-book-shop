@@ -16,8 +16,6 @@ interface ProfileData {
   address: any | null;
 }
 
-// Address is now a simple string array
-
 export default function UserProfilePage() {
   const { data: session } = useSession();
   const [profile, setProfile] = useState<ProfileData | null>(null);
@@ -30,7 +28,7 @@ export default function UserProfilePage() {
   const [phone, setPhone] = useState("");
   const [image, setImage] = useState("");
   const [note, setNote] = useState("");
-  const [addresses, setAddresses] = useState<string[]>(['']);
+  const [addresses, setAddresses] = useState<string[]>([""]);
   const [uploadingImage, setUploadingImage] = useState(false);
 
   useEffect(() => {
@@ -51,10 +49,9 @@ export default function UserProfilePage() {
 
         if (data.address) {
           if (Array.isArray(data.address)) {
-            // If it's an array of address objects, join the parts
             const formattedAddresses = data.address
               .map((a: any) => {
-                if (typeof a === 'string') return a;
+                if (typeof a === "string") return a;
                 const parts = [];
                 if (a.label) parts.push(a.label);
                 if (a.line1) parts.push(a.line1);
@@ -62,12 +59,15 @@ export default function UserProfilePage() {
                 return parts.join(", ");
               })
               .filter((a: string) => a.trim() !== "");
-            setAddresses(formattedAddresses.length > 0 ? formattedAddresses : [""]);
+            setAddresses(
+              formattedAddresses.length > 0 ? formattedAddresses : [""]
+            );
           } else if (typeof data.address === "object") {
-            // If it's a single address object
             const addr = data.address as any;
             if (addr.addresses && Array.isArray(addr.addresses)) {
-              setAddresses(addr.addresses.length > 0 ? [...addr.addresses, ""] : [""]);
+              setAddresses(
+                addr.addresses.length > 0 ? [...addr.addresses, ""] : [""]
+              );
             } else {
               const parts = [];
               if (addr.label) parts.push(addr.label);
@@ -100,8 +100,8 @@ export default function UserProfilePage() {
     setSuccess(null);
 
     const cleanedAddresses = addresses
-      .map(addr => addr.trim())
-      .filter(addr => addr.length > 0);
+      .map((addr) => addr.trim())
+      .filter((addr) => addr.length > 0);
 
     if (cleanedAddresses.length === 0) {
       setError("কমপক্ষে একটি ঠিকানা দিন");
@@ -116,10 +116,11 @@ export default function UserProfilePage() {
         body: JSON.stringify({
           name,
           phone,
-          image,
+          // 🔹 এখানে খালি string গেলে আর backend এ "" সেভ হবে না
+          image: image || null,
           note,
           address: {
-            addresses: cleanedAddresses
+            addresses: cleanedAddresses,
           },
         }),
       });
@@ -142,7 +143,7 @@ export default function UserProfilePage() {
   const userRole = (session?.user as any)?.role ?? profile?.role ?? "user";
 
   const handleAddressChange = (index: number, value: string) => {
-    setAddresses(prev => {
+    setAddresses((prev) => {
       const newAddresses = [...prev];
       newAddresses[index] = value;
       return newAddresses;
@@ -150,48 +151,75 @@ export default function UserProfilePage() {
   };
 
   const handleAddAddress = () => {
-    setAddresses(prev => [...prev, ""]);
+    setAddresses((prev) => [...prev, ""]);
   };
 
   const handleRemoveAddress = (index: number) => {
     if (addresses.length > 1) {
-      setAddresses(prev => prev.filter((_, i) => i !== index));
+      setAddresses((prev) => prev.filter((_, i) => i !== index));
     } else {
-      // If it's the last address, just clear it
       setAddresses([""]);
     }
   };
 
-  const handleImageFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+ const handleImageFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
 
-    try {
-      setUploadingImage(true);
-      setError(null);
-      const formData = new FormData();
-      formData.append("file", file);
+  const folder = "userProfilePic";
 
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
+  try {
+    setUploadingImage(true);
+    setError(null);
 
-      if (!res.ok) {
-        throw new Error("ইমেজ আপলোড করতে সমস্যা হয়েছে");
-      }
+    const formData = new FormData();
+    formData.append("file", file);
 
-      const data = await res.json();
-      if (data.fileUrl) {
-        setImage(data.fileUrl);
-        setSuccess("ইমেজ সফলভাবে আপলোড হয়েছে");
-      }
-    } catch (err: any) {
-      setError(err.message || "ইমেজ আপলোডে ত্রুটি হয়েছে");
-    } finally {
-      setUploadingImage(false);
+    const res = await fetch(`/api/upload/${folder}`, {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!res.ok) {
+      throw new Error("ইমেজ আপলোড করতে সমস্যা হয়েছে");
     }
-  };
+
+    const data = await res.json();
+
+    // 👇 এখানে সব সম্ভাব্য key ধরছি
+    const rawUrl: string | undefined =
+      data.fileUrl || data.url || data.path || data.location;
+
+    if (!rawUrl) {
+      throw new Error("সার্ভার থেকে ইমেজ URL পাওয়া যায়নি");
+    }
+
+    let finalUrl = rawUrl;
+
+    // চাইলে এখানে `/api/upload/userProfilePic/filename` ফরম্যাটে নরমালাইজ করতে পারো
+    try {
+      const base =
+        typeof window !== "undefined"
+          ? window.location.origin
+          : "http://localhost";
+      const url = new URL(finalUrl, base);
+      const parts = url.pathname.split("/").filter(Boolean);
+      const filename = parts[parts.length - 1];
+
+      finalUrl = `/api/upload/${folder}/${filename}`;
+    } catch {
+      // কিছু হলে rawUrl-টাই ব্যবহার করব
+    }
+
+    setImage(finalUrl);
+    setSuccess("ইমেজ সফলভাবে আপলোড হয়েছে");
+  } catch (err: any) {
+    setError(err.message || "ইমেজ আপলোডে ত্রুটি হয়েছে");
+  } finally {
+    setUploadingImage(false);
+  }
+};
+
 
   return (
     <>
@@ -262,7 +290,7 @@ export default function UserProfilePage() {
                     value={image}
                     onChange={(e) => setImage(e.target.value)}
                     className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                    placeholder="/upload/.... বা যে কোন ইমেজ URL"
+                    placeholder="/api/upload/userProfilePic/... বা যে কোন ইমেজ URL"
                   />
                   <div className="flex items-center gap-3">
                     <input
@@ -321,7 +349,9 @@ export default function UserProfilePage() {
                     <input
                       type="text"
                       value={address}
-                      onChange={(e) => handleAddressChange(index, e.target.value)}
+                      onChange={(e) =>
+                        handleAddressChange(index, e.target.value)
+                      }
                       className="flex-1 rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                       placeholder="Enter full address"
                     />
