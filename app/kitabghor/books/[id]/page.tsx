@@ -358,9 +358,13 @@ export default function BookDetail() {
                   : "(এখনও কোন রিভিউ নেই)"}
               </span>
               <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
-              <span className="text-sm text-gray-600">
-                {book.stock} পিস স্টকে
-              </span>
+              {book.stock > 0 ? (
+                <span className="text-sm text-gray-600">{`${book.stock} পিস স্টকে`}</span>
+              ) : (
+                <span className="text-sm font-semibold bg-rose-600 text-white px-2 py-1 rounded-full">
+                  Stock Out
+                </span>
+              )}
             </div>
 
             {/* Price Section */}

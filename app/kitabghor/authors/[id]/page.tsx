@@ -37,6 +37,7 @@ type Book = {
   price: number;
   original_price: number;
   discount: number;
+  stock: number;
   writer: {
     id: number;
     name: string;
@@ -443,9 +444,13 @@ export default function AuthorBooksPage() {
                         </span>
                       )}
                     </div>
-                    {book.discount > 0 && (
-                      <div className="text-xs font-semibold bg-[#D1D8BE] text-gray-700 px-2 py-1 rounded-full">
-                        সাশ্রয় করুন
+                    {book.stock > 0 ? (
+                      <div className="text-xs font-semibold bg-emerald-50 text-emerald-700 px-2 py-1 rounded-full">
+                        স্টকে আছে
+                      </div>
+                    ) : (
+                      <div className="text-xs font-semibold bg-rose-50 text-rose-700 px-2 py-1 rounded-full">
+                        স্টক নেই
                       </div>
                     )}
                   </div>
