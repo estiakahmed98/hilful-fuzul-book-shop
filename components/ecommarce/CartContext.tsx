@@ -63,6 +63,33 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   }, [cartItems]);
 
+  // 🔁 অন্য ট্যাব বা কোড থেকে localStorage change হলে অটো sync
+  useEffect(() => {
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === "cartItems") {
+        try {
+          if (!e.newValue) {
+            // key remove করা হয়েছে -> cart খালি
+            setCartItems([]);
+            return;
+          }
+          const parsed = JSON.parse(e.newValue);
+          if (Array.isArray(parsed)) {
+            setCartItems(parsed);
+          } else {
+            setCartItems([]);
+          }
+        } catch (err) {
+          console.error("Failed to sync cartItems from storage event:", err);
+          setCartItems([]);
+        }
+      }
+    };
+
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
+
   // 🧲 CartProvider মাউন্ট হলে একবারই /api/products থেকে প্রোডাক্ট লোড
   useEffect(() => {
     const loadProducts = async () => {
@@ -161,7 +188,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
   };
 
   const clearCart = () => {
+    // ✅ context + localStorage দুই জায়গাতেই ফাঁকা
     setCartItems([]);
+    try {
+      localStorage.removeItem("cartItems");
+    } catch (e) {
+      console.error("Failed to remove cartItems from localStorage:", e);
+    }
   };
 
   return (

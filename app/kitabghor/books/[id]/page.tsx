@@ -29,6 +29,8 @@ import BookReviews from "@/components/ecommarce/book-reviews";
 import { useCart } from "@/components/ecommarce/CartContext";
 import { useWishlist } from "@/components/ecommarce/WishlistContext";
 import { toast } from "sonner";
+// 🔹 auth-client theke useSession
+import { useSession } from "@/lib/auth-client";
 
 interface Product {
   id: string | number;
@@ -67,6 +69,8 @@ export default function BookDetail() {
 
   const { addToCart } = useCart();
   const { isInWishlist, addToWishlist, removeFromWishlist } = useWishlist();
+  const { status } = useSession();
+  const isAuthenticated = status === "authenticated";
 
   const [book, setBook] = useState<Product | null>(null);
   const [relatedBooks, setRelatedBooks] = useState<Product[]>([]);
@@ -132,19 +136,16 @@ export default function BookDetail() {
     const fetchReviewSummary = async () => {
       try {
         setReviewLoading(true);
-        // ekdom প্রথম পেজ, 1 টা আইটেম নিলেই হবে – main কাজ avg + total
         const res = await fetch(
           `/api/reviews?productId=${bookId}&page=1&limit=1`
         );
         if (!res.ok) {
-          // error hole কিছু না দেখালেও চলবে (default 0 থাকবে)
           return;
         }
 
         const data: any = await res.json();
-        const avg = typeof data.averageRating === "number"
-          ? data.averageRating
-          : 0;
+        const avg =
+          typeof data.averageRating === "number" ? data.averageRating : 0;
         const total =
           data?.pagination?.total ??
           (Array.isArray(data.reviews) ? data.reviews.length : 0);
@@ -184,10 +185,41 @@ export default function BookDetail() {
     }
   };
 
-  const handleAddToCart = () => {
+  // 🔥 Updated: login থাকলে API + Context, login না থাকলে শুধু Context
+  const handleAddToCart = async () => {
     if (!book) return;
-    addToCart(book.id, quantity);
-    toast.success(`${quantity} টি "${book.name}" কার্টে যোগ করা হয়েছে`);
+
+    try {
+      // ✅ লগইন থাকলে server-side cart sync
+      if (isAuthenticated) {
+        const res = await fetch("/api/cart", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            productId: Number(book.id),
+            quantity,
+          }),
+        });
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => null);
+          const message = data?.error || "কার্টে যোগ করতে সমস্যা হয়েছে";
+          throw new Error(message);
+        }
+      }
+
+      // ✅ সব حالتেই local cart context update (localStorage)
+      addToCart(book.id, quantity);
+
+      toast.success(`${quantity} টি "${book.name}" কার্টে যোগ করা হয়েছে`);
+    } catch (err) {
+      console.error("Error adding to cart:", err);
+      toast.error(
+        err instanceof Error ? err.message : "কার্টে যোগ করতে সমস্যা হয়েছে"
+      );
+    }
   };
 
   // ⭐ rating summary values
@@ -304,7 +336,7 @@ export default function BookDetail() {
               {book.name}
             </h1>
 
-            {/* Rating (🔹 এখন ডায়নামিক) */}
+            {/* Rating (dynamic) */}
             <div className="flex items-center gap-3 mb-4">
               <div className="flex">
                 {[1, 2, 3, 4, 5].map((star) => (
@@ -393,7 +425,7 @@ export default function BookDetail() {
                 <span className="font-medium text-gray-700">পরিমাণ:</span>
                 <div className="flex items-center border border-[#D1D8BE] rounded-lg overflow-hidden">
                   <button
-                    className="px-4 py-2 hover:bg-[#819A91] hover:text-white transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="px-4 py-2 hover:bg-[#819A91] hover:text:white transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed"
                     onClick={() => handleQuantityChange(quantity - 1)}
                     disabled={quantity <= 1}
                   >
@@ -484,7 +516,7 @@ export default function BookDetail() {
               </TabsTrigger>
               <TabsTrigger
                 value="reviews"
-                className="rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#819A91] data-[state=active]:to-[#A7C1A8] data-[state=active]:text-white transition-all duration-300"
+                className="rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#819A91] data-[state=active]:to-[#A7C1A8] data-[state=active]:text:white transition-all duration-300"
               >
                 রিভিউ ও রেটিং
               </TabsTrigger>
@@ -526,7 +558,7 @@ export default function BookDetail() {
         {/* Modal Overlays */}
         {showModel && (
           <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl w-full max-w-4xl h-[80vh] overflow-hidden shadow-2xl">
+            <div className="bg:white rounded-2xl w-full max-w-4xl h:[80vh] overflow-hidden shadow-2xl">
               <div className="flex justify-between items-center p-6 border-b border-[#D1D8BE]">
                 <h3 className="font-bold text-xl text-gray-800 flex items-center gap-2">
                   <Cube className="h-5 w-5 text-[#819A91]" />
@@ -550,7 +582,7 @@ export default function BookDetail() {
 
         {showPdf && (
           <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl w-full max-w-4xl h-[80vh] overflow-hidden shadow-2xl">
+            <div className="bg:white rounded-2xl w-full max-w-4xl h-[80vh] overflow-hidden shadow-2xl">
               <div className="flex justify-between items-center p-6 border-b border-[#D1D8BE]">
                 <h3 className="font-bold text-xl text-gray-800 flex items-center gap-2">
                   <BookOpen className="h-5 w-5 text-[#819A91]" />
@@ -565,7 +597,7 @@ export default function BookDetail() {
                   variant="ghost"
                   size="icon"
                   onClick={() => setShowPdf(false)}
-                  className="rounded-xl bg-white/80 hover:bg-red-50 hover:text-red-500 transition-colors shadow-md"
+                  className="rounded-xl bg:white/80 hover:bg-red-50 hover:text-red-500 transition-colors shadow-md"
                 >
                   <X className="h-5 w-5" />
                 </Button>

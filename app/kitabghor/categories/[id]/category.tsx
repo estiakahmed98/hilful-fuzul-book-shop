@@ -169,10 +169,41 @@ export default function CategoryPage({ params }: CategoryPageProps) {
     [isInWishlist, removeFromWishlist, addToWishlist]
   );
 
+  // ✅ এখানে /api/cart + local cart দুটোই ব্যবহার করছি
   const handleAddToCart = useCallback(
-    (book: Book) => {
-      addToCart(book.id);
-      toast.success(`"${book.name}" কার্টে যোগ করা হয়েছে`);
+    async (book: Book) => {
+      try {
+        // ১) server-side cart এ যোগ করার চেষ্টা (login থাকলে সফল হবে)
+        const res = await fetch("/api/cart", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            productId: book.id,
+            quantity: 1,
+          }),
+        });
+
+        // 401 মানে user লগইন না, তখন error দেখাবো না।
+        if (!res.ok && res.status !== 401) {
+          const data = await res.json().catch(() => null);
+          const message = data?.error || "কার্টে যোগ করতে সমস্যা হয়েছে";
+          throw new Error(message);
+        }
+
+        // ২) সবসময় local cart context update হবে (login থাকুক/না থাকুক)
+        addToCart(book.id, 1);
+
+        toast.success(`"${book.name}" কার্টে যোগ করা হয়েছে`);
+      } catch (err) {
+        console.error("Error adding to cart:", err);
+        toast.error(
+          err instanceof Error
+            ? err.message
+            : "কার্টে যোগ করতে সমস্যা হয়েছে"
+        );
+      }
     },
     [addToCart]
   );
