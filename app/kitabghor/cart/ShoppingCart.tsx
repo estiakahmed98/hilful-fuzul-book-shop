@@ -23,6 +23,16 @@ import { useRouter } from "next/navigation";
 // ✅ NextAuth client hooks/helpers
 import { useSession, signIn } from "@/lib/auth-client";
 
+// সার্ভার থেকে আসা কার্ট আইটেমকে লোকালভাবে এমন শেপে রাখব
+interface LocalCartItem {
+  id: number | string; // cartItem id (DB)
+  productId: number;
+  name: string;
+  price: number;
+  image: string;
+  quantity: number;
+}
+
 export default function CartPage() {
   const { cartItems, removeFromCart, updateQuantity, clearCart } = useCart();
 
@@ -36,15 +46,69 @@ export default function CartPage() {
   const [discount, setDiscount] = useState(0);
   const [hasMounted, setHasMounted] = useState(false);
 
+  // সার্ভার কার্ট আইটেম
+  const [serverCartItems, setServerCartItems] = useState<LocalCartItem[] | null>(
+    null
+  );
+  const [loadingServerCart, setLoadingServerCart] = useState(false);
+
   useEffect(() => {
     setHasMounted(true);
   }, []);
 
+  // ✅ লগইন করা থাকলে সার্ভার থেকে কার্ট লোড করো
+  useEffect(() => {
+    if (!hasMounted) return;
+    if (!isAuthenticated) {
+      setServerCartItems(null);
+      return;
+    }
+
+    const fetchServerCart = async () => {
+      try {
+        setLoadingServerCart(true);
+        const res = await fetch("/api/cart", { cache: "no-store" });
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => null);
+          console.error("Failed to load server cart:", data || res.statusText);
+          return;
+        }
+
+        const data = await res.json();
+        const items = Array.isArray(data.items) ? data.items : [];
+
+        const mapped: LocalCartItem[] = items.map((item: any) => ({
+          id: item.id,
+          productId: item.productId,
+          name: item.product?.name ?? "অজানা বই",
+          price: Number(item.product?.price ?? 0),
+          image: item.product?.image ?? "/placeholder.svg",
+          quantity: Number(item.quantity ?? 1),
+        }));
+
+        setServerCartItems(mapped);
+      } catch (err) {
+        console.error("Error loading server cart:", err);
+      } finally {
+        setLoadingServerCart(false);
+      }
+    };
+
+    fetchServerCart();
+  }, [isAuthenticated, hasMounted]);
+
   if (!hasMounted) return null;
+
+  // ✅ UI তে যে লিস্ট দেখাবো: লগইন + serverCart থাকলে সেটা, নইলে context
+  const itemsToRender: LocalCartItem[] = isAuthenticated && serverCartItems
+    ? serverCartItems
+    : (cartItems as any);
 
   // ✅ Checkout -> login if needed
   const handleCheckout = async () => {
     if (!isAuthenticated) {
+      // guest কার্ট pendingCheckout এ রাখছো, চাইলে এখানেও sync করতে পারো
       sessionStorage.setItem("pendingCheckout", JSON.stringify(cartItems));
       sessionStorage.setItem("redirectAfterLogin", "/kitabghor/checkout");
       toast.info("চেকআউট করতে লগইন করুন");
@@ -56,9 +120,9 @@ export default function CartPage() {
     router.push("/kitabghor/checkout");
   };
 
-  // ✅ Clear cart -> API + context
+  // ✅ Clear cart -> API + context + local server state
   const handleClearCart = async () => {
-    if (cartItems.length === 0) return;
+    if (itemsToRender.length === 0) return;
 
     try {
       if (isAuthenticated) {
@@ -72,9 +136,11 @@ export default function CartPage() {
           toast.error("কার্ট খালি করতে সমস্যা হয়েছে");
           return;
         }
+
+        setServerCartItems([]); // সার্ভার কার্ট খালি
       }
 
-      clearCart();
+      clearCart(); // context খালি
       toast.success("কার্ট খালি করা হয়েছে");
     } catch (error) {
       console.error("Error clearing cart:", error);
@@ -82,7 +148,7 @@ export default function CartPage() {
     }
   };
 
-  // ✅ Remove single item -> API + context
+  // ✅ Remove single item -> API + context + local server state
   const handleRemoveItem = async (itemId: string | number) => {
     try {
       if (isAuthenticated) {
@@ -97,6 +163,10 @@ export default function CartPage() {
           toast.error("কার্ট থেকে বই সরাতে সমস্যা হয়েছে");
           return;
         }
+
+        setServerCartItems((prev) =>
+          prev ? prev.filter((i) => i.id !== itemId) : prev
+        );
       }
 
       removeFromCart(itemId);
@@ -107,7 +177,7 @@ export default function CartPage() {
     }
   };
 
-  // ✅ Quantity update -> API + context
+  // ✅ Quantity update -> API + context + local server state
   const handleUpdateQuantity = async (
     itemId: string | number,
     newQuantity: number
@@ -130,6 +200,14 @@ export default function CartPage() {
           toast.error("পরিমাণ পরিবর্তনে সমস্যা হয়েছে");
           return;
         }
+
+        setServerCartItems((prev) =>
+          prev
+            ? prev.map((i) =>
+                i.id === itemId ? { ...i, quantity: newQuantity } : i
+              )
+            : prev
+        );
       }
 
       updateQuantity(itemId, newQuantity);
@@ -152,7 +230,7 @@ export default function CartPage() {
     }
   };
 
-  const subtotal = cartItems.reduce(
+  const subtotal = itemsToRender.reduce(
     (total, item) => total + item.price * item.quantity,
     0
   );
@@ -160,6 +238,8 @@ export default function CartPage() {
   const discountAmount = (subtotal * discount) / 100;
   const shippingCost = subtotal > 500 ? 0 : 60;
   const total = subtotal - discountAmount + shippingCost;
+
+  const isCartEmpty = itemsToRender.length === 0;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EEEFE0]/30 to-white py-8 md:py-12 lg:py-16">
@@ -194,7 +274,14 @@ export default function CartPage() {
           </div>
         </div>
 
-        {cartItems.length === 0 ? (
+        {/* Server cart loading indicator (optional) */}
+        {isAuthenticated && loadingServerCart && (
+          <div className="mb-4 text-sm text-gray-500">
+            সার্ভার থেকে কার্ট লোড হচ্ছে...
+          </div>
+        )}
+
+        {isCartEmpty ? (
           <div className="text-center py-16 bg-white rounded-2xl shadow-lg">
             <ShoppingCart className="h-16 w-16 text-gray-300 mx-auto mb-4" />
             <h2 className="text-2xl font-bold text-gray-800 mb-4">
@@ -218,7 +305,7 @@ export default function CartPage() {
                 <div className="flex justify-between items-center mb-6 pb-4 border-b border-[#D1D8BE]">
                   <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
                     <ShoppingCart className="h-5 w-5 text-[#819A91]" />
-                    কার্ট আইটেম ({cartItems.length})
+                    কার্ট আইটেম ({itemsToRender.length})
                   </h2>
                   <Button
                     variant="outline"
@@ -230,7 +317,7 @@ export default function CartPage() {
                 </div>
 
                 <div className="space-y-4">
-                  {cartItems.map((item) => (
+                  {itemsToRender.map((item) => (
                     <div
                       key={item.id}
                       className="group bg-gradient-to-br from-white to-[#EEEFE0] rounded-2xl p-4 border border-[#D1D8BE] hover:border-[#819A91]/30 transition-all duration-300"
@@ -405,7 +492,7 @@ export default function CartPage() {
                 <Button
                   className="w-full rounded-xl py-6 bg-gradient-to-r from-[#819A91] to-[#A7C1A8] hover:from-[#A7C1A8] hover:to-[#819A91] text-white font-bold text-lg border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 group/checkout"
                   onClick={handleCheckout}
-                  disabled={cartItems.length === 0}
+                  disabled={isCartEmpty}
                 >
                   <Shield className="mr-2 h-5 w-5 group-hover/checkout:scale-110 transition-transform" />
                   সুরক্ষিত চেকআউট

@@ -7,7 +7,14 @@ import {
   ReactNode,
   useEffect,
 } from "react";
-import { products } from "@/public/BookData";
+
+// API থেকে যেটুকু লাগবে শুধু সেটার টাইপ
+interface ProductApiItem {
+  id: number | string;
+  name: string;
+  price: number;
+  image?: string | null;
+}
 
 interface CartItem {
   id: number;
@@ -30,32 +37,96 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export function CartProvider({ children }: { children: ReactNode }) {
+  // 🛒 cartItems -> localStorage synced
   const [cartItems, setCartItems] = useState<CartItem[]>(() => {
     if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("cartItems");
-      return saved ? JSON.parse(saved) : [];
+      try {
+        const saved = localStorage.getItem("cartItems");
+        return saved ? JSON.parse(saved) : [];
+      } catch (e) {
+        console.error("Failed to parse cartItems from localStorage:", e);
+        return [];
+      }
     }
     return [];
   });
 
+  // 📚 API থেকে আনা প্রোডাক্ট লিস্ট
+  const [products, setProducts] = useState<ProductApiItem[]>([]);
+
+  // cartItems localStorage এ sync
   useEffect(() => {
-    localStorage.setItem("cartItems", JSON.stringify(cartItems));
+    try {
+      localStorage.setItem("cartItems", JSON.stringify(cartItems));
+    } catch (e) {
+      console.error("Failed to save cartItems to localStorage:", e);
+    }
   }, [cartItems]);
 
-  const cartCount = cartItems.reduce((total, item) => total + item.quantity, 0);
+  // 🧲 CartProvider মাউন্ট হলে একবারই /api/products থেকে প্রোডাক্ট লোড
+  useEffect(() => {
+    const loadProducts = async () => {
+      try {
+        const res = await fetch("/api/products", { cache: "no-store" });
+        if (!res.ok) {
+          console.error("Failed to fetch products for cart:", res.statusText);
+          return;
+        }
+
+        const data = await res.json();
+
+        if (!Array.isArray(data)) {
+          console.error("Invalid products response for cart:", data);
+          return;
+        }
+
+        const mapped: ProductApiItem[] = data.map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          price: Number(p.price ?? 0),
+          image: p.image ?? "/placeholder.svg",
+        }));
+
+        setProducts(mapped);
+      } catch (err) {
+        console.error("Error fetching products for cart:", err);
+      }
+    };
+
+    loadProducts();
+  }, []);
+
+  const cartCount = cartItems.reduce(
+    (total, item) => total + item.quantity,
+    0
+  );
 
   const addToCart = (productId: string | number, quantity: number = 1) => {
-    const product = products.find((p) => p.id === productId);
-    if (!product) return;
+    // productId string/number দুই কেসই handle
+    const numericId =
+      typeof productId === "string" ? Number(productId) : productId;
+
+    // 🔎 প্রোডাক্ট API থেকে আনা লিস্টে খুঁজে বের করো
+    const product = products.find(
+      (p) => Number(p.id) === Number(numericId)
+    );
+
+    if (!product) {
+      console.warn(
+        "Product not found in CartProvider products state for id:",
+        productId
+      );
+      return;
+    }
 
     setCartItems((prevItems) => {
       const existingItem = prevItems.find(
-        (item) => item.productId === productId
+        (item) => Number(item.productId) === Number(numericId)
       );
 
       if (existingItem) {
         return prevItems.map((item) =>
-          item.productId === productId
+          Number(item.productId) === Number(numericId)
             ? { ...item, quantity: item.quantity + quantity }
             : item
         );
@@ -83,7 +154,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
     if (quantity < 1) return;
 
     setCartItems((prevItems) =>
-      prevItems.map((item) => (item.id === id ? { ...item, quantity } : item))
+      prevItems.map((item) =>
+        item.id === id ? { ...item, quantity } : item
+      )
     );
   };
 

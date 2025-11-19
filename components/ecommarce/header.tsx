@@ -57,6 +57,9 @@ export default function Header() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
+  // 🔢 কার্ট কাউন্ট স্টেট
+  const [cartCount, setCartCount] = useState(0);
+
   // 🔍 সার্চ স্টেটগুলো
   const [searchTerm, setSearchTerm] = useState("");
   const [allProducts, setAllProducts] = useState<ProductSummary[]>([]);
@@ -92,6 +95,41 @@ export default function Header() {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  // ✅ cartItems বদলালেই লোকালি count আপডেট (guest + logged in দুজনের জন্য)
+  useEffect(() => {
+    const total =
+      cartItems?.reduce((sum, item) => sum + (item.quantity || 0), 0) || 0;
+    setCartCount(total);
+  }, [cartItems]);
+
+  // ✅ যদি লগইন করা থাকে এবং context খালি থাকে → /api/cart থেকে count hydrate করো (refresh scenario)
+  useEffect(() => {
+    const syncServerCartCount = async () => {
+      if (status !== "authenticated") return;
+      if (cartItems && cartItems.length > 0) return; // context এ ডাটা আছে, আর sync লাগবে না
+
+      try {
+        const res = await fetch("/api/cart", { cache: "no-store" });
+        if (!res.ok) {
+          return;
+        }
+        const data = await res.json();
+        const items = Array.isArray(data.items) ? data.items : [];
+        const serverCount =
+          items.reduce(
+            (sum: number, item: any) => sum + Number(item.quantity || 0),
+            0
+          ) || 0;
+
+        setCartCount(serverCount);
+      } catch (err) {
+        console.error("Failed to sync server cart count:", err);
+      }
+    };
+
+    syncServerCartCount();
+  }, [status, cartItems]);
 
   // 🔁 হেডার মাউন্ট হলে একবারই /api/products থেকে সব বই লোড
   useEffect(() => {
@@ -200,9 +238,6 @@ export default function Header() {
     { name: "বইমেলা ২০২৫", href: "/kitabghor/book-fair", icon: CalendarCheck },
     { name: "ব্লগ", href: "/kitabghor/blogs", icon: Tag },
   ];
-
-  const totalCartItems =
-    cartItems?.reduce((sum, item) => sum + item.quantity, 0) || 0;
 
   const userName = (session?.user as any)?.name || "ব্যবহারকারী";
   const userRole = (session?.user as any)?.role || "user";
@@ -328,9 +363,9 @@ export default function Header() {
                 className="rounded-full bg-[#EEEFE0] bg-opacity-80 hover:bg-[#2C4A3B] hover:text-[#EEEFE0] text-[#819A91] transition-all duration-300 hover:scale-105"
               >
                 <ShoppingCart className="h-5 w-5" />
-                {hasMounted && totalCartItems > 0 && (
+                {hasMounted && cartCount > 0 && (
                   <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center shadow-md">
-                    {totalCartItems}
+                    {cartCount}
                   </span>
                 )}
               </Button>

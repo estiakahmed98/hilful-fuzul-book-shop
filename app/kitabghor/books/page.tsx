@@ -10,6 +10,7 @@ import { Heart, ShoppingCart, Star, BookOpen, Search, Zap } from "lucide-react";
 import { useCart } from "@/components/ecommarce/CartContext";
 import { useWishlist } from "@/components/ecommarce/WishlistContext";
 import { toast } from "sonner";
+import { useSession } from "@/lib/auth-client";
 
 interface Product {
   id: number;
@@ -30,6 +31,7 @@ interface RatingInfo {
 export default function AllBooksPage() {
   const { addToCart } = useCart();
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
+  const { status } = useSession(); // "loading" | "authenticated" | "unauthenticated"
 
   const [products, setProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -111,41 +113,37 @@ export default function AllBooksPage() {
     }
   };
 
-  // 🔥 Updated: API + Context দুটোই
+  // ✅ Login থাকুক আর না থাকুক, আগে লোকাল cart context আপডেট হবে
+  // ✅ শুধু authenticated হলে API দিয়ে /api/cart এ sync করবে
   const handleAddToCart = async (book: Product) => {
-    try {
-      // ১) server-side cart এ যোগ করো
-      const res = await fetch("/api/cart", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          productId: book.id,
-          quantity: 1,
-        }),
-      });
+    // ১) লোকাল কার্টে আগে যোগ করি (guest mode এর জন্য সবচেয়ে জরুরি)
+    addToCart(book.id);
+    toast.success(`"${book.name}" কার্টে যোগ করা হয়েছে`);
 
-      if (!res.ok) {
-        const data = await res.json().catch(() => null);
-        const message = data?.error || "কার্টে যোগ করতে সমস্যা হয়েছে";
-        throw new Error(message);
+    // ২) যদি ইউজার লগইন করা থাকে, তখন server-side cart এ sync করি
+    if (status === "authenticated") {
+      try {
+        const res = await fetch("/api/cart", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            productId: book.id,
+            quantity: 1,
+          }),
+        });
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => null);
+          console.error("Server cart sync failed:", data || res.statusText);
+          // এখানে চাইলে warning type toast দিতে পারো
+          // toast.warning("সার্ভারের কার্ট আপডেট হয়নি, তবে লোকাল কার্টে আছে");
+        }
+      } catch (err) {
+        console.error("Error syncing cart to server:", err);
+        // এখানেও warning দিলে হবে, কিন্তু লোকাল cart ঠিক আছে
       }
-
-      // চাইলে cartItem data নিতেও পারো
-      // const cartItem = await res.json();
-
-      // ২) লোকাল cart context update
-      addToCart(book.id);
-
-      toast.success(`"${book.name}" কার্টে যোগ করা হয়েছে`);
-    } catch (err) {
-      console.error("Error adding to cart:", err);
-      toast.error(
-        err instanceof Error
-          ? err.message
-          : "কার্টে যোগ করতে সমস্যা হয়েছে"
-      );
     }
   };
 
